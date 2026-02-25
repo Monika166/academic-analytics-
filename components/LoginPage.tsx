@@ -32,21 +32,20 @@ const LoginPage: React.FC = () => {
         body: JSON.stringify({
           email: email,
           password: password,
+          login_type: "FACULTY",
         }),
       });
       const data = await response.json();
       if (response.ok) {
-        // Save logged-in user info
         localStorage.setItem("faculty_id", data.faculty_id);
         localStorage.setItem("faculty_name", data.faculty_name);
         localStorage.setItem("faculty_designation", data.faculty_designation);
         localStorage.setItem("faculty_email", data.email);
         localStorage.setItem("faculty_phone", data.phone);
-        if (data.role === "HOD") {
-          navigate("/hod-dashboard");
-        } else {
-          navigate("/dashboard");
-        }
+
+        localStorage.setItem("userRole", "faculty");
+
+        navigate("/dashboard"); // ✅ ALWAYS go to faculty dashboard
       } else {
         alert(data.error || "Invalid email or password");
       }

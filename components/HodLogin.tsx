@@ -32,12 +32,19 @@ const LoginPage: React.FC = () => {
         body: JSON.stringify({
           email: email,
           password: password,
+          login_type: "HOD",
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ VERY IMPORTANT CHECK
+        if (data.faculty_designation !== "HOD") {
+          alert("Access denied. Only HOD can login here.");
+          return;
+        }
+
         // Save logged-in user info
         localStorage.setItem("faculty_name", data.faculty_name);
         localStorage.setItem("faculty_id", data.faculty_id);
@@ -45,7 +52,9 @@ const LoginPage: React.FC = () => {
         localStorage.setItem("faculty_email", data.email);
         localStorage.setItem("faculty_phone", data.phone);
         localStorage.setItem("faculty_branch", data.faculty_branch);
-        // Navigate ONLY if login success
+
+        localStorage.setItem("userRole", "hod");
+
         navigate("/hod-dashboard");
       } else {
         alert(data.error || "Invalid email or password");
