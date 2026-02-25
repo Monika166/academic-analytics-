@@ -30,7 +30,7 @@ const HodDashboard: React.FC = () => {
 
   // State for HOD details
   const [hodName, setHodName] = useState("user");
-  const [branch, setBranch] = useState("DEPT");
+  const [branch, setBranch] = useState("");
 
   useEffect(() => {
     // Fetch stored details from Register/Login
