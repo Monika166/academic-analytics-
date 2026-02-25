@@ -25,6 +25,7 @@ const HodDashboard: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [selectedSemester, setSelectedSemester] = useState<string>("1");
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // State for HOD details
@@ -74,10 +75,11 @@ const HodDashboard: React.FC = () => {
 
   const semesters = ["all", "1", "2", "3", "4", "5", "6", "7", "8"];
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
+  const handleLogoutConfirm = () => {
+  localStorage.clear();
+  setIsLogoutModalOpen(false);
+  navigate("/hod-login");
+};
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -160,7 +162,10 @@ const HodDashboard: React.FC = () => {
                 <div className="h-px bg-slate-100 my-1 mx-2" />
 
                 <button
-                  onClick={handleLogout}
+                  onClick={() => {
+  setIsDropdownOpen(false);
+  setIsLogoutModalOpen(true);
+}}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors font-semibold"
                 >
                   <LogOut size={18} /> Logout
@@ -291,12 +296,59 @@ const HodDashboard: React.FC = () => {
           </div>
         </div>
       </main>
+      {/* ================= LOGOUT MODAL ================= */}
+{isLogoutModalOpen && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+      onClick={() => setIsLogoutModalOpen(false)}
+    ></div>
+
+    {/* Modal */}
+    <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-8">
+      <div className="flex flex-col items-center text-center">
+        
+        <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
+          <LogOut size={28} />
+        </div>
+
+        <h3 className="text-xl font-bold text-slate-900 mb-2">
+          Are you sure you want to logout?
+        </h3>
+
+        <p className="text-slate-500 mb-8">
+          You will be redirected to the HOD login page and your session will be closed.
+        </p>
+
+        <div className="flex gap-3 w-full">
+          <button
+            onClick={handleLogoutConfirm}
+            className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl"
+          >
+            Yes, Logout
+          </button>
+
+          <button
+            onClick={() => setIsLogoutModalOpen(false)}
+            className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 font-bold py-3 rounded-xl"
+          >
+            Cancel
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
+    
   );
 };
 
