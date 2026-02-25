@@ -64,36 +64,51 @@ def register_faculty(request):
 def login_faculty(request):
     if request.method == "POST":
         try:
-            if not request.body:
-                return JsonResponse({"error": "Empty request body"}, status=400)
-
             data = json.loads(request.body)
 
             email = data.get("email")
             password = data.get("password")
+            login_type = data.get("login_type")  # HOD or FACULTY
 
-            if not email or not password:
-                return JsonResponse({"error": "Email and password required"}, status=400)
+            if not email or not password or not login_type:
+                return JsonResponse(
+                    {"error": "Email, password and login type are required"},
+                    status=400
+                )
 
             try:
                 faculty = Faculty.objects.get(email=email)
             except Faculty.DoesNotExist:
                 return JsonResponse({"error": "User not registered"}, status=400)
 
-            # Check hashed password
-            if check_password(password, faculty.password):
-                # Include 'branch' in the login response
-                return JsonResponse({
-                    "message": "Login successful",
-                    "faculty_id": faculty.id,
-                    "faculty_name": faculty.full_name,
-                    "faculty_designation": faculty.designation,
-                    "faculty_branch": faculty.branch, # Added this
-                    "email": faculty.email,
-                    "phone": faculty.phone
-                }, status=200)
-            else:
+            # Check password
+            if not check_password(password, faculty.password):
                 return JsonResponse({"error": "Invalid password"}, status=400)
+
+            # 🔥 ROLE CHECK LOGIC
+
+            # If trying to login from HOD page
+            if login_type == "HOD":
+                if faculty.designation.strip().upper() != "HOD":
+                    return JsonResponse(
+                        {"error": "Access denied. Only HOD can login here."},
+                        status=403
+                    )
+
+            # If trying to login from FACULTY page
+            if login_type == "FACULTY":
+                # Faculty and HOD both allowed
+                pass
+
+            return JsonResponse({
+                "message": "Login successful",
+                "faculty_id": faculty.id,
+                "faculty_name": faculty.full_name,
+                "faculty_designation": faculty.designation,
+                "faculty_branch": faculty.branch,
+                "email": faculty.email,
+                "phone": faculty.phone
+            }, status=200)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
