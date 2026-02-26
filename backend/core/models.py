@@ -13,7 +13,7 @@ class Faculty(models.Model):
         return f"{self.full_name} ({self.designation})"
 
 
-class Subject(models.Model):
+class ProfSubject(models.Model):
     subject_code = models.CharField(max_length=20)
     subject_name = models.CharField(max_length=100)
     batch = models.CharField(max_length=20)
@@ -26,7 +26,7 @@ class Subject(models.Model):
 
 class CourseOutcome(models.Model):
     faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    subject = models.ForeignKey(ProfSubject, on_delete=models.CASCADE)
     co_number = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 

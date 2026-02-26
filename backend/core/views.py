@@ -1,9 +1,10 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty
-from .models import Subject
+from django.views.decorators.http import require_http_methods
+from .models import Faculty, ProfSubject, CourseOutcome
 import json
+
 
 @csrf_exempt
 def register_faculty(request):
@@ -18,23 +19,17 @@ def register_faculty(request):
             email = data.get("email")
             phone = data.get("phone")
             designation = data.get("designation")
-            # Capture the branch from the request
             branch = data.get("branch")
             password = data.get("password")
 
-            # Check missing fields (branch is optional for non-HODs, so not in 'all')
             if not all([full_name, email, phone, designation, password]):
                 return JsonResponse({"error": "All fields are required"}, status=400)
 
-            # Check duplicate email
             if Faculty.objects.filter(email=email).exists():
                 return JsonResponse({"error": "Email already registered"}, status=400)
 
-            # Logic to ensure branch is only saved if designation is HOD
-            # This matches your frontend's .toUpperCase() logic
             final_branch = branch if designation.strip().upper() == "HOD" else None
 
-            # Create user with the new branch field
             faculty = Faculty.objects.create(
                 full_name=full_name,
                 email=email,
@@ -44,7 +39,6 @@ def register_faculty(request):
                 password=make_password(password)
             )
 
-            # Return the branch in the response so frontend can save it immediately
             return JsonResponse({
                 "message": "Registration successful",
                 "id": faculty.id,
@@ -69,7 +63,7 @@ def login_faculty(request):
 
             email = data.get("email")
             password = data.get("password")
-            login_type = data.get("login_type")  # HOD or FACULTY
+            login_type = data.get("login_type")
 
             if not email or not password or not login_type:
                 return JsonResponse(
@@ -82,13 +76,9 @@ def login_faculty(request):
             except Faculty.DoesNotExist:
                 return JsonResponse({"error": "User not registered"}, status=400)
 
-            # Check password
             if not check_password(password, faculty.password):
                 return JsonResponse({"error": "Invalid password"}, status=400)
 
-            # 🔥 ROLE CHECK LOGIC
-
-            # If trying to login from HOD page
             if login_type == "HOD":
                 if faculty.designation.strip().upper() != "HOD":
                     return JsonResponse(
@@ -96,9 +86,7 @@ def login_faculty(request):
                         status=403
                     )
 
-            # If trying to login from FACULTY page
             if login_type == "FACULTY":
-                # Faculty and HOD both allowed
                 pass
 
             return JsonResponse({
@@ -115,6 +103,8 @@ def login_faculty(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
+
+
 @csrf_exempt
 def get_subjects_by_filters(request):
     if request.method == "GET":
@@ -123,7 +113,7 @@ def get_subjects_by_filters(request):
             session = request.GET.get("session")
             semester = request.GET.get("semester")
 
-            subjects = Subject.objects.filter(
+            subjects = ProfSubject.objects.filter(
                 batch=batch,
                 session=session,
                 semester=semester
@@ -143,7 +133,7 @@ def get_subjects_by_filters(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
-from .models import CourseOutcome, Subject
+
 
 @csrf_exempt
 def add_course_outcome(request):
@@ -152,16 +142,15 @@ def add_course_outcome(request):
             data = json.loads(request.body)
 
             faculty_id = data.get("faculty_id")
-            subject_id = data.get("subject_id")
+            profsubject_id = data.get("subject_id")
             number_of_co = data.get("numberOfCO")
 
-            if not all([faculty_id, subject_id, number_of_co]):
+            if not all([faculty_id, profsubject_id, number_of_co]):
                 return JsonResponse({"error": "All fields required"}, status=400)
 
-            # Create CO
             co = CourseOutcome.objects.create(
                 faculty_id=faculty_id,
-                subject_id=subject_id,
+                subject_id=profsubject_id,
                 co_number=number_of_co
             )
 
@@ -173,7 +162,7 @@ def add_course_outcome(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
-from django.views.decorators.http import require_http_methods
+
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -190,6 +179,7 @@ def get_profile(request, faculty_id):
 
     except Faculty.DoesNotExist:
         return JsonResponse({"error": "Faculty not found"}, status=404)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
