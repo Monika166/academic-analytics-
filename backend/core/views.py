@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty
+from .models import Faculty, Subject
 import json
 
 @csrf_exempt
@@ -109,6 +109,111 @@ def login_faculty(request):
                 "email": faculty.email,
                 "phone": faculty.phone
             }, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def add_subject(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            faculty_id = data.get("faculty_id")
+            subject_code = data.get("subject_code")
+            subject_name = data.get("subject_name")
+            semester = data.get("semester")
+            branch = data.get("branch")
+            session = data.get("session")
+            batch = data.get("batch")
+
+            faculty = Faculty.objects.get(id=faculty_id)
+
+            if faculty.designation.strip().upper() != "HOD":
+                return JsonResponse(
+                    {"error": "Only HOD can add subjects"},
+                    status=403
+                )
+
+            subject = Subject.objects.create(
+                subject_code=subject_code,
+                subject_name=subject_name,
+                semester=semester,
+                branch=branch,
+                session=session,
+                batch=batch,
+                created_by=faculty
+            )
+
+            return JsonResponse({"message": "Subject added"}, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def get_hod_subjects(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            faculty_id = data.get("faculty_id")
+
+            faculty = Faculty.objects.get(id=faculty_id)
+
+            subjects = Subject.objects.filter(created_by=faculty)
+
+            subject_list = []
+
+            for subject in subjects:
+                subject_list.append({
+                    "id": subject.id,
+                    "subject_code": subject.subject_code,
+                    "subject_name": subject.subject_name,
+                    "semester": subject.semester,
+                    "branch": subject.branch,
+                    "session": subject.session,
+                    "batch": subject.batch,
+                    "is_active": subject.is_active,
+                })
+
+            return JsonResponse({"subjects": subject_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def update_subject(request, subject_id):
+    if request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+
+            faculty_id = data.get("faculty_id")
+
+            faculty = Faculty.objects.get(id=faculty_id)
+
+            if faculty.designation.strip().upper() != "HOD":
+                return JsonResponse(
+                    {"error": "Only HOD can edit subjects"},
+                    status=403
+                )
+
+            subject = Subject.objects.get(id=subject_id)
+
+            subject.subject_code = data.get("subject_code", subject.subject_code)
+            subject.subject_name = data.get("subject_name", subject.subject_name)
+            subject.semester = data.get("semester", subject.semester)
+            subject.session = data.get("session", subject.session)
+            subject.batch = data.get("batch", subject.batch)
+            subject.is_active = data.get("is_active", subject.is_active)
+
+            subject.save()
+
+            return JsonResponse({"message": "Subject updated"}, status=200)
+
+        except Subject.DoesNotExist:
+            return JsonResponse({"error": "Subject not found"}, status=404)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
