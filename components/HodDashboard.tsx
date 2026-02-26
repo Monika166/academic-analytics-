@@ -33,41 +33,40 @@ const HodDashboard: React.FC = () => {
   const [branch, setBranch] = useState("");
 
   useEffect(() => {
-    // Fetch stored details from Register/Login
     const storedName = localStorage.getItem("faculty_name");
     const storedBranch = localStorage.getItem("faculty_branch");
+
     if (storedName) setHodName(storedName);
     if (storedBranch) setBranch(storedBranch);
+    const fetchSubjects = async () => {
+      const facultyId = localStorage.getItem("faculty_id");
 
-    // Close dropdown when clicking outside
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
+      if (!facultyId) return;
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/get-hod-subjects/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            faculty_id: facultyId,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubjects(data.subjects);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    fetchSubjects();
   }, []);
 
-  const subjects: Subject[] = [
-    {
-      code: "CS101",
-      name: "Introduction to Computer Science",
-      semester: 1,
-      status: "ACTIVE",
-    },
-    {
-      code: "MA201",
-      name: "Engineering Mathematics",
-      semester: 1,
-      status: "ACTIVE",
-    },
-    { code: "CS301", name: "Data Structures", semester: 3, status: "ACTIVE" },
-  ];
-
+  const [subjects, setSubjects] = useState<any[]>([]);
   const filteredSubjects =
     selectedSemester === "all"
       ? subjects
@@ -76,10 +75,10 @@ const HodDashboard: React.FC = () => {
   const semesters = ["all", "1", "2", "3", "4", "5", "6", "7", "8"];
 
   const handleLogoutConfirm = () => {
-  localStorage.clear();
-  setIsLogoutModalOpen(false);
-  navigate("/hod-login");
-};
+    localStorage.clear();
+    setIsLogoutModalOpen(false);
+    navigate("/hod-login");
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -163,9 +162,9 @@ const HodDashboard: React.FC = () => {
 
                 <button
                   onClick={() => {
-  setIsDropdownOpen(false);
-  setIsLogoutModalOpen(true);
-}}
+                    setIsDropdownOpen(false);
+                    setIsLogoutModalOpen(true);
+                  }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors font-semibold"
                 >
                   <LogOut size={18} /> Logout
@@ -259,28 +258,42 @@ const HodDashboard: React.FC = () => {
                 >
                   <div className="flex justify-between items-center mb-4">
                     <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                      SEMESTER {subject.semester}ST
+                      SEMESTER {subject.semester}
                     </span>
 
-                    <span className="bg-green-100 text-green-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                      {subject.status}
+                    <span
+                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                        subject.is_active
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {subject.is_active ? "ACTIVE" : "INACTIVE"}
                     </span>
                   </div>
 
                   <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">
-                    {subject.code}
+                    {subject.subject_code}
                   </h3>
 
                   <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                    {subject.name}
+                    {subject.subject_name}
                   </p>
 
-                  <div className="flex justify-between items-center text-[10px] pt-4 border-t border-slate-200">
-                    <span className="text-slate-400 font-bold tracking-[0.1em] uppercase">
-                      CURRICULUM 2024
-                    </span>
+                  <div className="flex justify-between items-center text-[11px] pt-4 border-t border-slate-200">
+                    <div className="flex flex-col text-slate-500 font-semibold uppercase tracking-wide">
+                      <span>Session: {subject.session}</span>
+                      <span>Batch: {subject.batch}</span>
+                    </div>
 
-                    <button className="text-blue-600 font-bold hover:text-blue-800 transition-colors">
+                    <button
+                      onClick={() =>
+                        navigate("/edit-subject", {
+                          state: { subject },
+                        })
+                      }
+                      className="text-blue-600 font-bold hover:text-blue-800 transition-colors"
+                    >
                       Edit Details
                     </button>
                   </div>
@@ -297,58 +310,55 @@ const HodDashboard: React.FC = () => {
         </div>
       </main>
       {/* ================= LOGOUT MODAL ================= */}
-{isLogoutModalOpen && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-    
-    {/* Backdrop */}
-    <div
-      className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-      onClick={() => setIsLogoutModalOpen(false)}
-    ></div>
-
-    {/* Modal */}
-    <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-8">
-      <div className="flex flex-col items-center text-center">
-        
-        <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
-          <LogOut size={28} />
-        </div>
-
-        <h3 className="text-xl font-bold text-slate-900 mb-2">
-          Are you sure you want to logout?
-        </h3>
-
-        <p className="text-slate-500 mb-8">
-          You will be redirected to the HOD login page and your session will be closed.
-        </p>
-
-        <div className="flex gap-3 w-full">
-          <button
-            onClick={handleLogoutConfirm}
-            className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl"
-          >
-            Yes, Logout
-          </button>
-
-          <button
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setIsLogoutModalOpen(false)}
-            className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 font-bold py-3 rounded-xl"
-          >
-            Cancel
-          </button>
-        </div>
+          ></div>
 
-      </div>
-    </div>
-  </div>
-)}
+          {/* Modal */}
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6">
+                <LogOut size={28} />
+              </div>
+
+              <h3 className="text-xl font-bold text-slate-900 mb-2">
+                Are you sure you want to logout?
+              </h3>
+
+              <p className="text-slate-500 mb-8">
+                You will be redirected to the HOD login page and your session
+                will be closed.
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={handleLogoutConfirm}
+                  className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl"
+                >
+                  Yes, Logout
+                </button>
+
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 font-bold py-3 rounded-xl"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
-    
   );
 };
 
