@@ -24,12 +24,17 @@ const AddSubject: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (Number(formData.numberOfSubjects) <= 0) {
+      alert("Number of subjects must be greater than 0");
+      return;
+    }
+
     navigate("/hod-subject-details", {
       state: {
-        numberOfSubjects: formData.numberOfSubjects,
+        numberOfSubjects: Number(formData.numberOfSubjects),
         session: formData.session,
         batch: formData.batch,
-        semester: formData.semester,
+        semester: Number(formData.semester),
       },
     });
   };

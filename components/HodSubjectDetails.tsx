@@ -5,6 +5,9 @@ import { GraduationCap, ChevronLeft, User, BookOpen } from "lucide-react";
 const AddSubject: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const session = location.state?.session;
+  const batch = location.state?.batch;
+  const semester = location.state?.semester;
 
   const numberOfSubjects = Number(location.state?.numberOfSubjects || 1);
 
@@ -25,12 +28,49 @@ const AddSubject: React.FC = () => {
     setSubjects(updatedSubjects);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(subjects);
 
-    // Later: send to backend
-    navigate("/hod-dashboard");
+    const facultyId = localStorage.getItem("faculty_id");
+    const branch = localStorage.getItem("faculty_branch");
+
+    if (!facultyId) {
+      alert("User not logged in");
+      return;
+    }
+
+    try {
+      for (let subject of subjects) {
+        const response = await fetch("http://127.0.0.1:8000/api/add-subject/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            faculty_id: facultyId,
+            subject_code: subject.code,
+            subject_name: subject.name,
+            semester: semester,
+            branch: branch,
+            session: session,
+            batch: batch,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.error || "Failed to add subject");
+          return;
+        }
+      }
+
+      alert("All subjects added successfully!");
+      navigate("/hod-dashboard");
+    } catch (error) {
+      console.error(error);
+      alert("Server error. Make sure backend is running.");
+    }
   };
 
   return (
