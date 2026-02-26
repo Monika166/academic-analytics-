@@ -10,6 +10,7 @@ import SubjectDetails from "./components/SubjectDetails";
 import HodDashboard from "./components/HodDashboard";
 import AddSubject from "./components/AddSubject";
 import HodAddStudent from "./components/HodAddStudent";
+import EditSubject from "./components/EditSubject";
 
 import HodSubjectDetails from "./components/HodSubjectDetails";
 const App = () => {
@@ -28,6 +29,7 @@ const App = () => {
         <Route path="/add-subject" element={<AddSubject />} />
         <Route path="/hod-subject-details" element={<HodSubjectDetails />} />
         <Route path="/hod-add-student" element={<HodAddStudent />} />
+        <Route path="/edit-subject" element={<EditSubject />} />
       </Routes>
     </Router>
   );
