@@ -4,6 +4,9 @@ import { Mail, Phone, User, Briefcase, Lock, Camera } from "lucide-react";
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const [currentPassword, setCurrentPassword] = useState("");
+const [newPassword, setNewPassword] = useState("");
+const [confirmPassword, setConfirmPassword] = useState("");
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -11,23 +14,81 @@ const Profile: React.FC = () => {
   const [designation, setDesignation] = useState("");
 
   useEffect(() => {
-    const facultyId = localStorage.getItem("faculty_id");
+  const facultyId = localStorage.getItem("faculty_id");
 
-    if (!facultyId) {
-      navigate("/login");
-      return;
+  if (!facultyId) {
+    navigate("/login");
+    return;
+  }
+
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/profile/${facultyId}/`
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setFullName(data.full_name);
+        setEmail(data.email);
+        setPhone(data.phone);
+        setDesignation(data.designation);
+      } else {
+        console.error(data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
     }
+  };
 
-    const storedName = localStorage.getItem("faculty_name");
-    const storedDesignation = localStorage.getItem("faculty_designation");
-    const storedEmail = localStorage.getItem("faculty_email");
-    const storedPhone = localStorage.getItem("faculty_phone");
+  fetchProfile();
+}, []);
 
-    if (storedName) setFullName(storedName);
-    if (storedDesignation) setDesignation(storedDesignation);
-    if (storedEmail) setEmail(storedEmail);
-    if (storedPhone) setPhone(storedPhone);
-  }, [navigate]);
+const handleUpdatePassword = async () => {
+  console.log("Button clicked");
+  const facultyId = localStorage.getItem("faculty_id");
+
+  if (!facultyId) {
+    alert("User not logged in");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert("New passwords do not match");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/api/update-password/",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          faculty_id: parseInt(facultyId),
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert("Password updated successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } else {
+      alert(data.error);
+    }
+  } catch (error) {
+    console.error("Error updating password:", error);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -125,24 +186,36 @@ const Profile: React.FC = () => {
 
             <div className="space-y-4">
               <input
-                type="password"
-                placeholder="Current Password"
-                className="w-full border rounded-xl px-3 py-2"
-              />
-              <input
-                type="password"
-                placeholder="New Password"
-                className="w-full border rounded-xl px-3 py-2"
-              />
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                className="w-full border rounded-xl px-3 py-2"
-              />
+  type="password"
+  placeholder="Current Password"
+  value={currentPassword}
+  onChange={(e) => setCurrentPassword(e.target.value)}
+  className="w-full border rounded-xl px-3 py-2"
+/>
 
-              <button className="bg-blue-900 text-white px-6 py-2 rounded-xl shadow-md hover:bg-blue-800">
-                Update Password
-              </button>
+<input
+  type="password"
+  placeholder="New Password"
+  value={newPassword}
+  onChange={(e) => setNewPassword(e.target.value)}
+  className="w-full border rounded-xl px-3 py-2"
+/>
+
+<input
+  type="password"
+  placeholder="Confirm New Password"
+  value={confirmPassword}
+  onChange={(e) => setConfirmPassword(e.target.value)}
+  className="w-full border rounded-xl px-3 py-2"
+/>
+
+              <button
+               type="button" 
+  onClick={handleUpdatePassword}
+  className="bg-blue-900 text-white px-6 py-2 rounded-xl shadow-md hover:bg-blue-800"
+>
+  Update Password
+</button>
             </div>
           </div>
         </div>

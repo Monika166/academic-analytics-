@@ -2,6 +2,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
 from .models import Faculty
+from .models import Subject
 import json
 
 @csrf_exempt
@@ -114,3 +115,106 @@ def login_faculty(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def get_subjects_by_filters(request):
+    if request.method == "GET":
+        try:
+            batch = request.GET.get("batch")
+            session = request.GET.get("session")
+            semester = request.GET.get("semester")
+
+            subjects = Subject.objects.filter(
+                batch=batch,
+                session=session,
+                semester=semester
+            )
+
+            data = []
+            for subject in subjects:
+                data.append({
+                    "id": subject.id,
+                    "subject_code": subject.subject_code,
+                    "subject_name": subject.subject_name
+                })
+
+            return JsonResponse(data, safe=False)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+from .models import CourseOutcome, Subject
+
+@csrf_exempt
+def add_course_outcome(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            faculty_id = data.get("faculty_id")
+            subject_id = data.get("subject_id")
+            number_of_co = data.get("numberOfCO")
+
+            if not all([faculty_id, subject_id, number_of_co]):
+                return JsonResponse({"error": "All fields required"}, status=400)
+
+            # Create CO
+            co = CourseOutcome.objects.create(
+                faculty_id=faculty_id,
+                subject_id=subject_id,
+                co_number=number_of_co
+            )
+
+            return JsonResponse({
+                "message": "Course Outcome created successfully"
+            }, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+from django.views.decorators.http import require_http_methods
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_profile(request, faculty_id):
+    try:
+        faculty = Faculty.objects.get(id=faculty_id)
+
+        return JsonResponse({
+            "full_name": faculty.full_name,
+            "email": faculty.email,
+            "phone": faculty.phone,
+            "designation": faculty.designation,
+        })
+
+    except Faculty.DoesNotExist:
+        return JsonResponse({"error": "Faculty not found"}, status=404)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_password(request):
+    try:
+        data = json.loads(request.body)
+
+        faculty_id = data.get("faculty_id")
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+
+        if not all([faculty_id, current_password, new_password]):
+            return JsonResponse({"error": "All fields required"}, status=400)
+
+        faculty = Faculty.objects.get(id=faculty_id)
+
+        if not check_password(current_password, faculty.password):
+            return JsonResponse({"error": "Current password incorrect"}, status=400)
+
+        faculty.password = make_password(new_password)
+        faculty.save()
+
+        return JsonResponse({"message": "Password updated successfully"})
+
+    except Faculty.DoesNotExist:
+        return JsonResponse({"error": "Faculty not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
