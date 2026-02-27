@@ -4,44 +4,85 @@ import { GraduationCap, ChevronLeft, User, Upload } from "lucide-react";
 
 const HodAddStudent: React.FC = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const hodBranch = localStorage.getItem("faculty_branch") || "";
+  const [students, setStudents] = useState<any[]>([]);
+  const [session, setSession] = useState("");
+  const [batch, setBatch] = useState("");
+  const [semester, setSemester] = useState("");
+  // const [branch, setBranch] = useState("");
+  const [file, setFile] = useState<File | null>(null);
 
-  const [formData, setFormData] = useState({
-    session: "",
-    batch: "",
-    semester: "",
-    file: null as File | null,
-  });
+  const handleUpload = async () => {
+    if (!file) {
+      alert("Please select a CSV file");
+      return;
+    }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+    if (!session || !batch || !semester) {
+      alert("Please fill all fields");
+      return;
+    }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFormData({
-        ...formData,
-        file: e.target.files[0],
-      });
+    setLoading(true); // 🔥 START LOADING
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("session", session);
+    formData.append("batch", batch);
+    formData.append("semester", semester);
+    formData.append("branch", hodBranch);
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/upload-students/",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        await fetchStudents();
+        setFile(null);
+      } else {
+        alert(data.error);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Something went wrong!");
+    } finally {
+      setLoading(false); // 🔥 STOP LOADING
     }
   };
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/get-students/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session,
+          batch,
+        }),
+      });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log(formData);
+      const data = await response.json();
 
-    // Later connect to backend
-    alert("Students uploaded successfully!");
-    navigate("/hod-dashboard");
+      if (response.ok) {
+        setStudents(data.students);
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
   };
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      {/* ================= NAVBAR ================= */}
+      {/* NAVBAR */}
       <header className="h-[70px] bg-white border-b border-slate-100 shadow-sm flex items-center">
         <div className="max-w-[1200px] w-full mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -64,9 +105,8 @@ const HodAddStudent: React.FC = () => {
         </div>
       </header>
 
-      {/* ================= MAIN ================= */}
+      {/* MAIN */}
       <main className="max-w-[900px] mx-auto px-6 py-10">
-        {/* Back Button */}
         <button
           onClick={() => navigate("/hod-dashboard")}
           className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-6"
@@ -75,7 +115,6 @@ const HodAddStudent: React.FC = () => {
           Back to HOD Dashboard
         </button>
 
-        {/* Card */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
           <h1 className="text-3xl font-extrabold text-slate-900 mb-2">
             Add New Student
@@ -84,7 +123,7 @@ const HodAddStudent: React.FC = () => {
             Enroll a new student into the department database.
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
             {/* Session */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -92,15 +131,13 @@ const HodAddStudent: React.FC = () => {
               </label>
               <input
                 type="text"
-                name="session"
                 placeholder="e.g. Summer 2024"
-                value={formData.session}
-                onChange={handleChange}
+                value={session}
+                onChange={(e) => setSession(e.target.value)}
                 required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               />
             </div>
-
             {/* Batch */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -108,24 +145,21 @@ const HodAddStudent: React.FC = () => {
               </label>
               <input
                 type="text"
-                name="batch"
                 placeholder="e.g. 2024-2028"
-                value={formData.batch}
-                onChange={handleChange}
+                value={batch}
+                onChange={(e) => setBatch(e.target.value)}
                 required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               />
             </div>
-
             {/* Semester */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 SEMESTER
               </label>
               <select
-                name="semester"
-                value={formData.semester}
-                onChange={handleChange}
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
                 required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               >
@@ -140,39 +174,102 @@ const HodAddStudent: React.FC = () => {
                 <option value="8">8th Semester</option>
               </select>
             </div>
-
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                BRANCH
+              </label>
+              <input
+                type="text"
+                value={hodBranch}
+                disabled
+                className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3"
+              />
+            </div>
             {/* Upload CSV */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 UPLOAD STUDENT DATA (CSV)
               </label>
 
-              <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
+              <label
+                className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-2xl cursor-pointer transition ${
+                  loading
+                    ? "bg-blue-50 border-blue-400"
+                    : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
                 <Upload size={32} className="text-blue-600 mb-3" />
-                <p className="text-slate-600 font-medium">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-slate-400">
-                  CSV files only (max. 10MB)
-                </p>
+
+                {!file ? (
+                  <>
+                    <p className="text-slate-600 font-medium">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      CSV files only (max. 10MB)
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-green-600 font-semibold">
+                      ✅ {file.name}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      File selected successfully
+                    </p>
+                  </>
+                )}
+
                 <input
                   type="file"
                   accept=".csv"
-                  onChange={handleFileChange}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
                   className="hidden"
-                  required
                 />
               </label>
             </div>
-
-            {/* Submit */}
+            {/* Upload Button */}
             <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 hover:from-blue-700 hover:to-blue-800 transition-all"
+              type="button"
+              onClick={handleUpload}
+              disabled={loading}
+              className={`w-full font-bold py-4 rounded-xl shadow-lg transition-all ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-blue-600/20"
+              } text-white`}
             >
-              Upload and Enroll Students
+              {loading ? "Uploading..." : "Upload and Enroll Students"}
             </button>
-          </form>
+            {students.length > 0 && (
+              <div className="mt-10">
+                <h2 className="text-xl font-bold mb-4">Uploaded Students</h2>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full border border-slate-200 rounded-xl overflow-hidden">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="p-3 text-left">Roll No</th>
+                        <th className="p-3 text-left">Name</th>
+                        <th className="p-3 text-left">Email</th>
+                        <th className="p-3 text-left">Semester</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {students.map((student) => (
+                        <tr key={student.id} className="border-t">
+                          <td className="p-3">{student.roll_number}</td>
+                          <td className="p-3">{student.full_name}</td>
+                          <td className="p-3">{student.email}</td>
+                          <td className="p-3">{student.semester}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
