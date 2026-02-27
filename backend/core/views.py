@@ -2,6 +2,11 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
 from .models import Faculty, Subject
+import csv
+import io
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import Student
 import json
 
 @csrf_exempt
@@ -219,3 +224,89 @@ def update_subject(request, subject_id):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def upload_students_csv(request):
+    if request.method == "POST":
+        try:
+            session = request.POST.get("session")
+            batch = request.POST.get("batch")
+            semester = int(request.POST.get("semester"))
+            branch = request.POST.get("branch")
+
+            csv_file = request.FILES.get("file")
+
+            if not csv_file:
+                return JsonResponse({"error": "No file uploaded"}, status=400)
+
+            decoded_file = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+
+            students_created = 0
+
+            for row in reader:
+                full_name = row.get("full_name")
+                roll_number = row.get("roll_number")
+                email = row.get("email")
+
+                if not full_name or not roll_number:
+                    continue
+
+                if Student.objects.filter(
+                    roll_number=roll_number.strip(),
+                    batch=batch,
+                    session=session
+                ).exists():
+                    continue
+
+                Student.objects.create(
+                    full_name=full_name.strip(),
+                    roll_number=roll_number.strip(),
+                    email=email.strip() if email else None,
+                    branch=branch,
+                    batch=batch,
+                    semester=semester,
+                    session=session
+                )
+
+                students_created += 1
+
+            return JsonResponse({
+                "message": f"{students_created} students uploaded successfully"
+            })
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Only POST allowed"}, status=405)
+@csrf_exempt
+def get_students(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            session = data.get("session")
+            batch = data.get("batch")
+
+            students = Student.objects.filter(
+                session=session,
+                batch=batch
+            )
+
+            student_list = []
+
+            for student in students:
+                student_list.append({
+                    "id": student.id,
+                    "full_name": student.full_name,
+                    "roll_number": student.roll_number,
+                    "email": student.email,
+                    "semester": student.semester,
+                })
+
+            return JsonResponse({"students": student_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Only POST allowed"}, status=405)
