@@ -29,3 +29,19 @@ class Subject(models.Model):
 
     def __str__(self):
         return f"{self.subject_code} - {self.subject_name}"
+    
+class Student(models.Model):
+    full_name = models.CharField(max_length=200)
+    roll_number = models.CharField(max_length=50)
+    email = models.EmailField(blank=True, null=True)
+
+    branch = models.CharField(max_length=100)
+    batch = models.CharField(max_length=20)
+    semester = models.IntegerField()
+    session = models.CharField(max_length=50)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        unique_together = ('roll_number', 'batch', 'session')
+    def __str__(self):
+        return f"{self.full_name} - {self.roll_number}"
