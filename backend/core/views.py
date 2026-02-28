@@ -1,12 +1,13 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty, Subject
+from .models import Faculty, Subject, Student, CourseOutcome, COMark
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 import csv
 import io
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from .models import Student
+
+
 import json
 
 @csrf_exempt
@@ -287,10 +288,14 @@ def get_students(request):
 
             session = data.get("session")
             batch = data.get("batch")
+            semester = data.get("semester")
+            branch = data.get("branch")
 
             students = Student.objects.filter(
                 session=session,
-                batch=batch
+                batch=batch,
+                semester=int(semester),
+                branch__iexact=branch
             )
 
             student_list = []
@@ -300,8 +305,6 @@ def get_students(request):
                     "id": student.id,
                     "full_name": student.full_name,
                     "roll_number": student.roll_number,
-                    "email": student.email,
-                    "semester": student.semester,
                 })
 
             return JsonResponse({"students": student_list}, status=200)
@@ -310,3 +313,108 @@ def get_students(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Only POST allowed"}, status=405)
+
+@csrf_exempt
+def add_course_outcome(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            batch = data.get("batch")
+            session = data.get("session")
+            semester = data.get("semester")
+
+            if not batch or not session or not semester:
+                return JsonResponse(
+                    {"error": "All fields are required"},
+                    status=400
+                )
+
+            co = CourseOutcome.objects.create(
+                batch=batch,
+                session=session,
+                semester=int(semester)
+            )
+
+            return JsonResponse({
+                "message": "Course Outcome added successfully",
+                "id": co.id
+            }, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def get_subjects_for_co(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            branch = data.get("branch")
+            semester = data.get("semester")
+            batch = data.get("batch")
+            session = data.get("session")
+
+            # Safety check
+            if not all([branch, semester, batch, session]):
+                return JsonResponse({"subjects": []}, status=200)
+
+            # 🔥 IMPORTANT FIX: convert semester to int
+            semester = int(semester)
+
+            subjects = Subject.objects.filter(
+    branch__iexact=branch,
+    semester=semester,
+    batch__iexact=batch,
+    session__iexact=session,
+    is_active=True
+)
+
+            subject_list = []
+
+            for subject in subjects:
+                subject_list.append({
+                    "id": subject.id,
+                    "subject_code": subject.subject_code,
+                    "subject_name": subject.subject_name,
+                })
+
+            return JsonResponse({"subjects": subject_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+@api_view(['POST'])
+def save_co_marks(request):
+    try:
+        marks_data = request.data.get("marks")
+        subject_id = request.data.get("subject_id")
+
+        subject = Subject.objects.get(id=subject_id)
+
+        for student_id, co_values in marks_data.items():
+            student = Student.objects.get(id=int(student_id))
+
+            for co_key, mark in co_values.items():
+                # Extract number from "CO1", "CO2"
+                co_number = int(co_key.replace("CO", ""))
+
+                COMark.objects.create(
+                    student=student,
+                    subject=subject,
+                    co_number=co_number,
+                    marks=float(mark),
+                    branch=request.data.get("branch"),
+                    batch=request.data.get("batch"),
+                    semester=int(request.data.get("semester")),
+                    session=request.data.get("session"),
+                )
+
+        return Response({"message": "Saved successfully"})
+
+    except Exception as e:
+        print("SAVE ERROR:", e)  # 👈 helps debugging
+        return Response({"error": str(e)}, status=500)
