@@ -42,6 +42,7 @@ const LoginPage: React.FC = () => {
         localStorage.setItem("faculty_designation", data.faculty_designation);
         localStorage.setItem("faculty_email", data.email);
         localStorage.setItem("faculty_phone", data.phone);
+        localStorage.setItem("faculty_branch", data.faculty_branch);
 
         localStorage.setItem("userRole", "faculty");
 

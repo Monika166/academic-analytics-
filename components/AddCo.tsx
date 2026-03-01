@@ -9,6 +9,7 @@ export default function AddCOPage() {
     batch: "",
     session: "",
     semester: "",
+    branch: "",
   });
 
   const handleChange = (e: ChangeEvent<any>) => {
@@ -18,17 +19,43 @@ export default function AddCOPage() {
     });
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();
 
-    console.log("Submitted Data:", formData);
+  try {
+    const response = await fetch("http://127.0.0.1:8000/api/add-co/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        batch: formData.batch,
+        session: formData.session,
+        semester: formData.semester,
+        branch: formData.branch,
+      }),
+    });
 
-    // TODO: Connect to backend API here
+    const data = await response.json();
 
-    alert("Course Outcome Added Successfully!");
+    if (response.ok) {
+      alert("Course Outcome Added Successfully!");
 
-    navigate("/subject-details", { state: formData });
-  };
+      const branch = localStorage.getItem("faculty_branch");
+
+navigate("/subject-details", {
+  state: {
+    ...formData,
+  },
+});
+    } else {
+      alert(data.error || "Something went wrong");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    alert("Server error. Check backend.");
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -81,6 +108,25 @@ export default function AddCOPage() {
                 className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            {/* Branch */}
+<div>
+  <label className="block text-sm font-semibold mb-2">
+    BRANCH
+  </label>
+  <select
+    name="branch"
+    value={formData.branch}
+    onChange={handleChange}
+    required
+    className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  >
+    <option value="">Choose Branch</option>
+                    <option value="CSE">Computer Science (CSE)</option>
+                    <option value="ECE">Electronics & Comm (ECE)</option>
+                    <option value="ME">Mechanical Engineering</option>
+                    <option value="CE">Civil Engineering</option>
+  </select>
+</div>
 
             {/* Semester */}
             <div>
