@@ -1,32 +1,50 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-interface Subject {
-  code: string;
-  name: string;
-}
 
-// 🔹 Temporary subject list (Later this will come from backend)
-const subjects: Subject[] = [
-  { code: "CS101", name: "Data Structures" },
-  { code: "CS102", name: "Database Systems" },
-  { code: "CS103", name: "Operating Systems" },
-];
+interface Subject {
+  id: number;
+  subject_code: string;
+  subject_name: string;
+}
 
 export default function SubjectDetailsPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const coBasicData = location.state as {
-    batch: string;
-    session: string;
-    semester: string;
-  };
+  const coBasicData: any = location.state || {};
+
   const [formData, setFormData] = useState({
     subjectCode: "",
     subjectName: "",
     numberOfCO: "",
   });
+
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  // ✅ FETCH SUBJECTS FILTERED BY BATCH, SESSION, SEMESTER, BRANCH
+ useEffect(() => {
+  console.log("CO BASIC DATA:", coBasicData);
+
+  fetch("http://127.0.0.1:8000/api/get-subjects-for-co/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      branch: coBasicData.branch,
+      semester: coBasicData.semester,
+      batch: coBasicData.batch,
+      session: coBasicData.session,
+    }),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("SUBJECT DATA:", data);
+      setSubjects(data.subjects || []);
+    })
+    .catch((err) => console.error(err));
+}, []);
 
   const handleChange = (e: ChangeEvent<any>) => {
     setFormData({
@@ -35,31 +53,35 @@ export default function SubjectDetailsPage() {
     });
   };
 
-  const handleSubjectCodeChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const selectedCode = e.target.value;
-    const selectedSubject = subjects.find((sub) => sub.code === selectedCode);
+  const handleSubjectSelect = (e: ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = Number(e.target.value);
+    const selectedSubject = subjects.find((s) => s.id === selectedId);
 
     setFormData({
       ...formData,
-      subjectCode: selectedCode,
-      subjectName: selectedSubject ? selectedSubject.name : "",
+      subjectCode: selectedSubject?.subject_code || "",
+      subjectName: selectedSubject?.subject_name || "",
     });
   };
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    const fullCOData = {
+  const selectedSubject = subjects.find(
+    (s) => s.subject_code === formData.subjectCode
+  );
+
+  navigate("/batch", {
+    state: {
+      numberOfCO: Number(formData.numberOfCO),
+      branch: coBasicData.branch,
       batch: coBasicData.batch,
-      session: coBasicData.session,
       semester: coBasicData.semester,
-      subjectCode: formData.subjectCode,
-      subjectName: formData.subjectName,
-      numberOfCO: formData.numberOfCO,
-    };
-
-    navigate("/dashboard", { state: fullCOData });
-  };
+      session: coBasicData.session,
+      subject_id: selectedSubject?.id, // VERY IMPORTANT
+    },
+  });
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,40 +108,30 @@ export default function SubjectDetailsPage() {
                 SUBJECT CODE
               </label>
               <select
-                name="subjectCode"
-                value={formData.subjectCode}
-                onChange={handleSubjectCodeChange}
+                onChange={handleSubjectSelect}
                 required
                 className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Subject Code</option>
                 {subjects.map((subject) => (
-                  <option key={subject.code} value={subject.code}>
-                    {subject.code}
+                  <option key={subject.id} value={subject.id}>
+                    {subject.subject_code}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Subject Name Dropdown (Auto-filled but selectable) */}
+            {/* Subject Name Auto Filled */}
             <div>
               <label className="block text-sm font-semibold mb-2">
                 SUBJECT NAME
               </label>
-              <select
-                name="subjectName"
+              <input
+                type="text"
                 value={formData.subjectName}
-                onChange={handleChange}
-                required
-                className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Subject Name</option>
-                {subjects.map((subject) => (
-                  <option key={subject.name} value={subject.name}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
+                readOnly
+                className="w-full border rounded-lg px-4 py-3 bg-gray-100"
+              />
             </div>
 
             {/* Number of CO */}
