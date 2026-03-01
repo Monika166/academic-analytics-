@@ -11,6 +11,7 @@ import HodDashboard from "./components/HodDashboard";
 import AddSubject from "./components/AddSubject";
 import HodAddStudent from "./components/HodAddStudent";
 import EditSubject from "./components/EditSubject";
+import BatchPage from "./components/BatchPage";
 
 import HodSubjectDetails from "./components/HodSubjectDetails";
 const App = () => {
@@ -30,6 +31,7 @@ const App = () => {
         <Route path="/hod-subject-details" element={<HodSubjectDetails />} />
         <Route path="/hod-add-student" element={<HodAddStudent />} />
         <Route path="/edit-subject" element={<EditSubject />} />
+        <Route path="/batch" element={<BatchPage />} />
       </Routes>
     </Router>
   );
