@@ -68,6 +68,8 @@ const HodAddStudent: React.FC = () => {
         body: JSON.stringify({
           session,
           batch,
+          semester,
+          branch: hodBranch, // 🔥 IMPORTANT FIX
         }),
       });
 
@@ -75,6 +77,8 @@ const HodAddStudent: React.FC = () => {
 
       if (response.ok) {
         setStudents(data.students);
+      } else {
+        console.error(data.error);
       }
     } catch (error) {
       console.error("Error fetching students:", error);
