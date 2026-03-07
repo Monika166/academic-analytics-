@@ -290,7 +290,8 @@ def get_students(request):
             batch = data.get("batch")
             semester = data.get("semester")
             branch = data.get("branch")
-
+            if not all([session, batch, semester, branch]):
+                return JsonResponse({"students": []}, status=200)
             students = Student.objects.filter(
                 session=session,
                 batch=batch,
@@ -305,6 +306,8 @@ def get_students(request):
                     "id": student.id,
                     "full_name": student.full_name,
                     "roll_number": student.roll_number,
+                    "email": student.email,         
+                    "semester": student.semester,
                 })
 
             return JsonResponse({"students": student_list}, status=200)
@@ -418,3 +421,37 @@ def save_co_marks(request):
     except Exception as e:
         print("SAVE ERROR:", e)  # 👈 helps debugging
         return Response({"error": str(e)}, status=500)
+@csrf_exempt
+def get_co_marks(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            subject_id = data.get("subject_id")
+
+            # 🔥 Optimize query
+            marks = COMark.objects.filter(
+                subject_id=subject_id
+            ).select_related("student")
+
+            mark_list = []
+
+            for mark in marks:
+                mark_list.append({
+                    "student_id": mark.student.id,
+                    "student_name": mark.student.full_name,   # ✅ THIS
+                    "roll_number": mark.student.roll_number, # ✅ THIS
+                    "co_number": mark.co_number,
+                    "marks": mark.marks,
+                    "semester": mark.semester,
+                    "branch": mark.branch,
+                    "batch": mark.batch,
+                    "session": mark.session,
+                })
+
+            return JsonResponse({"marks": mark_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Only POST allowed"}, status=405)

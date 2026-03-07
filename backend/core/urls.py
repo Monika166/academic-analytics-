@@ -11,4 +11,6 @@ urlpatterns = [
     path('get-subjects-for-co/', views.get_subjects_for_co),
     path('save-co-marks/', views.save_co_marks),
     path('get-students/', views.get_students),
+    path('upload-students/', views.upload_students_csv),
+    path('get-co-marks/', views.get_co_marks),
 ]
