@@ -6,8 +6,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import csv
 import io
-
-
+from .models import CourseOutcome
+import openpyxl
+from django.http import HttpResponse
 import json
 
 @csrf_exempt
@@ -326,6 +327,7 @@ def add_course_outcome(request):
             batch = data.get("batch")
             session = data.get("session")
             semester = data.get("semester")
+            branch = data.get("branch")
 
             if not batch or not session or not semester:
                 return JsonResponse(
@@ -336,7 +338,8 @@ def add_course_outcome(request):
             co = CourseOutcome.objects.create(
                 batch=batch,
                 session=session,
-                semester=int(semester)
+                semester=int(semester),
+                branch=branch 
             )
 
             return JsonResponse({
@@ -455,3 +458,46 @@ def get_co_marks(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Only POST allowed"}, status=405)
+def get_branch_semester(request):
+
+    data = CourseOutcome.objects.values(
+        "batch",
+        "session",
+        "branch",
+        "semester"
+    ).distinct()
+
+    return JsonResponse(list(data), safe=False)
+def download_excel(request, branch, semester):
+
+    marks = COMark.objects.filter(
+    branch__iexact=branch,
+    semester=semester
+).select_related("student", "subject")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    ws.append([
+        "Student Name",
+        "Roll Number",
+        "Subject",
+        "CO Number",
+        "Marks"
+    ])
+
+    for m in marks:
+        ws.append([
+            m.student.full_name,
+            m.student.roll_number,
+            m.subject.subject_name,
+            f"CO{m.co_number}",
+            m.marks
+        ])
+
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = f"attachment; filename={branch}_sem{semester}.xlsx"
+
+    wb.save(response)
+
+    return response

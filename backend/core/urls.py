@@ -13,4 +13,6 @@ urlpatterns = [
     path('get-students/', views.get_students),
     path('upload-students/', views.upload_students_csv),
     path('get-co-marks/', views.get_co_marks),
+   path("branch-semester/", views.get_branch_semester),
+path("download-excel/<str:branch>/<int:semester>/", views.download_excel),
 ]
