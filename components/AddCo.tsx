@@ -19,7 +19,7 @@ export default function AddCOPage() {
     });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+ const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
   try {
@@ -28,12 +28,7 @@ export default function AddCOPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        batch: formData.batch,
-        session: formData.session,
-        semester: formData.semester,
-        branch: formData.branch,
-      }),
+      body: JSON.stringify(formData),   // simpler
     });
 
     const data = await response.json();
@@ -41,16 +36,15 @@ export default function AddCOPage() {
     if (response.ok) {
       alert("Course Outcome Added Successfully!");
 
-      const branch = localStorage.getItem("faculty_branch");
+      // navigate to subject-details to enter marks
+      navigate("/subject-details", {
+        state: formData,
+      });
 
-navigate("/subject-details", {
-  state: {
-    ...formData,
-  },
-});
     } else {
       alert(data.error || "Something went wrong");
     }
+
   } catch (error) {
     console.error("Error:", error);
     alert("Server error. Check backend.");

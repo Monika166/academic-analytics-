@@ -1,14 +1,16 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 interface Student {
   id: number;
-  full_name: string;
+  full_name: string
   roll_number: string;
 }
 
 export default function BatchPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { numberOfCO, branch, batch, semester, session, subject_id } =
     location.state || {};
 
@@ -48,6 +50,10 @@ export default function BatchPage() {
 
   // ✅ Submit Marks (Correct API)
   const handleSubmit = async () => {
+    if (Object.keys(marks).length === 0) {
+  alert("Please enter marks before submitting");
+  return;
+}
     const response = await fetch(
       "http://127.0.0.1:8000/api/save-co-marks/",
       {
@@ -68,6 +74,7 @@ export default function BatchPage() {
 
     if (response.ok) {
       alert("Marks Saved Successfully!");
+      navigate("/dashboard");
     } else {
       alert(data.error || "Error saving marks");
     }
