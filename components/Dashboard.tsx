@@ -19,6 +19,7 @@ interface CourseOutcome {
   batch: string;
   session: string;
   semester: string;
+  branch: string;
   subjectCode: string;
   subjectName: string;
   numberOfCO: string;
@@ -33,7 +34,7 @@ const Dashboard: React.FC = () => {
   const profileRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const [coList, setCoList] = useState<CourseOutcome[]>([]);
-
+  const [branchSemesterList, setBranchSemesterList] = useState<any[]>([]);
   useEffect(() => {
     const name = localStorage.getItem("faculty_name");
     const id = localStorage.getItem("faculty_id");
@@ -54,6 +55,14 @@ const Dashboard: React.FC = () => {
       setCoList([location.state as CourseOutcome]);
     }
   }, [location.state]);
+  useEffect(() => {
+  fetch("http://127.0.0.1:8000/api/branch-semester/")
+    .then((res) => res.json())
+    .then((data) => {
+      setBranchSemesterList(data);
+    })
+    .catch((err) => console.error(err));
+}, []);
   const handleLogoutConfirm = () => {
     localStorage.removeItem("faculty_name");
     localStorage.removeItem("faculty_id");
@@ -171,7 +180,7 @@ const Dashboard: React.FC = () => {
 
         {/* Scalable Grid for Future Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {coList.length === 0 ? (
+          {branchSemesterList.length === 0 ? (
             <div className="h-64 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center p-8 text-center bg-white/50">
               <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
                 <Plus size={24} />
@@ -185,45 +194,46 @@ const Dashboard: React.FC = () => {
               </p>
             </div>
           ) : (
-            coList.map((co, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-3xl shadow-md border border-slate-100 p-10 min-h-[320px] hover:shadow-xl transition-all"
-              >
-                <h2 className="text-lg font-bold text-slate-900 mb-4">
-                  CO #{index + 1}
-                </h2>
+            branchSemesterList.map((item, index) => (
+  <div
+    key={index}
+    className="bg-white rounded-3xl shadow-md border border-slate-100 p-10 min-h-[220px] hover:shadow-xl transition-all"
+  >
+    <h2 className="text-lg font-bold text-slate-900 mb-6">
+      Semester {item.semester}
+    </h2>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Batch</span>
-                    <span className="font-medium">{co.batch}</span>
-                  </div>
+    <div className="space-y-3 text-sm">
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Session</span>
-                    <span className="font-medium">{co.session}</span>
-                  </div>
+  <div className="flex justify-between">
+    <span className="text-slate-500">Batch</span>
+    <span className="font-medium">{item.batch}</span>
+  </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Semester</span>
-                    <span className="font-medium">{co.semester}</span>
-                  </div>
+  <div className="flex justify-between">
+    <span className="text-slate-500">Session</span>
+    <span className="font-medium">{item.session}</span>
+  </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subject</span>
-                    <span className="text-blue-600 font-semibold">
-                      {co.subjectCode}
-                    </span>
-                  </div>
+  <div className="flex justify-between">
+    <span className="text-slate-500">Branch</span>
+    <span className="font-medium">{item.branch}</span>
+  </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">COs</span>
-                    <span className="font-medium">{co.numberOfCO}</span>
-                  </div>
-                </div>
-              </div>
-            ))
+      <button
+        className="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+        onClick={() =>
+          window.open(
+            `http://127.0.0.1:8000/api/download-excel/${item.branch}/${item.semester}/`
+          )
+        }
+      >
+        Download Excel
+      </button>
+
+    </div>
+  </div>
+))
           )}
         </div>
       </main>

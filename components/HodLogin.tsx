@@ -228,38 +228,10 @@ const LoginPage: React.FC = () => {
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-100"></div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-4 text-slate-400 font-bold tracking-widest">
-                    OR
-                  </span>
-                </div>
+                
               </div>
 
-              {/* Google Login (Optional Placeholder) */}
-              <button
-                type="button"
-                className="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.04c1.35 0 2.57.46 3.52 1.36l2.64-2.64C16.56 2.18 14.43 1.5 12 1.5c-4.12 0-7.65 2.45-9.17 5.96l3.07 2.38C6.63 7.02 9.09 5.04 12 5.04z"
-                  />
-                  <path
-                    fill="#4285F4"
-                    d="M22.01 12.3c0-.64-.05-1.25-.15-1.84H12v3.48h5.61c-.24 1.25-.95 2.31-2.01 3.02l3.14 2.44C20.61 17.65 22.01 15.19 22.01 12.3z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.9 14.84c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29L2.83 7.88C2.1 9.3 1.5 10.9 1.5 12.61c0 1.71.6 3.31 1.33 4.73l3.07-2.5z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 22.5c2.43 0 4.47-.81 5.96-2.19l-3.14-2.44c-.83.56-1.89.89-2.82.89-2.91 0-5.37-1.98-6.25-4.65L2.66 16.59C4.18 20.1 7.71 22.5 12 22.5z"
-                  />
-                </svg>
-                <span>Continue with Institution Google SSO</span>
-              </button>
+              
             </form>
 
             <div className="mt-12 text-center">

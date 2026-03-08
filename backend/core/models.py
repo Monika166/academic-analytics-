@@ -53,15 +53,17 @@ class Student(models.Model):
 
 
 class CourseOutcome(models.Model):
-    batch = models.CharField(max_length=20)
-    session = models.CharField(max_length=50)
-    semester = models.IntegerField()
 
-    created_at = models.DateTimeField(auto_now_add=True)
+       batch = models.CharField(max_length=20, null=True, blank=True)
+       session = models.CharField(max_length=50, null=True, blank=True)
+       branch = models.CharField(max_length=100, null=True, blank=True)
+       semester = models.IntegerField(null=True, blank=True)
+       created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.batch} - {self.session} - Sem {self.semester}"
-    
+
+       def __str__(self):
+        return f"{self.branch} - Sem {self.semester} - {self.batch}"
+       
 class COMark(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
