@@ -247,14 +247,14 @@ def upload_students_csv(request):
 
             for row in reader:
                 full_name = row.get("full_name")
-                roll_number = row.get("roll_number")
+                registration_number = row.get("registration_number")
                 email = row.get("email")
 
-                if not full_name or not roll_number:
+                if not full_name or not registration_number:
                     continue
 
                 if Student.objects.filter(
-                    roll_number=roll_number.strip(),
+                    registration_number=registration_number.strip(),
                     batch=batch,
                     session=session,
                     # branch=branch
@@ -263,7 +263,7 @@ def upload_students_csv(request):
 
                 Student.objects.create(
                     full_name=full_name.strip(),
-                   roll_number=roll_number.strip(),
+                   registration_number=registration_number.strip(),
                     email=email.strip() if email else None,
                     branch=branch,
                     batch=batch,
@@ -306,7 +306,7 @@ def get_students(request):
                 student_list.append({
                     "id": student.id,
                     "full_name": student.full_name,
-                    "roll_number": student.roll_number,
+                    "registration_number": student.registration_number,
                     "email": student.email,         
                     "semester": student.semester,
                 })
@@ -443,7 +443,7 @@ def get_co_marks(request):
                 mark_list.append({
                     "student_id": mark.student.id,
                     "student_name": mark.student.full_name,   # ✅ THIS
-                    "roll_number": mark.student.roll_number, # ✅ THIS
+                    "registration_number": mark.student.registration_number, # ✅ THIS
                     "co_number": mark.co_number,
                     "marks": mark.marks,
                     "semester": mark.semester,
@@ -480,7 +480,7 @@ def download_excel(request, branch, semester):
 
     ws.append([
         "Student Name",
-        "Roll Number",
+        "Registration Number",
         "Subject",
         "CO Number",
         "Marks"
@@ -489,7 +489,7 @@ def download_excel(request, branch, semester):
     for m in marks:
         ws.append([
             m.student.full_name,
-            m.student.roll_number,
+            m.student.registration_number,
             m.subject.subject_name,
             f"CO{m.co_number}",
             m.marks
