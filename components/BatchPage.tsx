@@ -4,8 +4,8 @@ import { useLocation } from "react-router-dom";
 
 interface Student {
   id: number;
-  full_name: string
-  roll_number: string;
+  full_name: string;
+  registration_number: string;
 }
 
 export default function BatchPage() {
@@ -34,11 +34,7 @@ export default function BatchPage() {
   }, []);
 
   // Handle input change
-  const handleChange = (
-    studentId: number,
-    coNumber: number,
-    value: string
-  ) => {
+  const handleChange = (studentId: number, coNumber: number, value: string) => {
     setMarks((prev: any) => ({
       ...prev,
       [studentId]: {
@@ -51,24 +47,21 @@ export default function BatchPage() {
   // ✅ Submit Marks (Correct API)
   const handleSubmit = async () => {
     if (Object.keys(marks).length === 0) {
-  alert("Please enter marks before submitting");
-  return;
-}
-    const response = await fetch(
-      "http://127.0.0.1:8000/api/save-co-marks/",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          marks,
-          branch,
-          batch,
-          semester,
-          session,
-          subject_id,
-        }),
-      }
-    );
+      alert("Please enter marks before submitting");
+      return;
+    }
+    const response = await fetch("http://127.0.0.1:8000/api/save-co-marks/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        marks,
+        branch,
+        batch,
+        semester,
+        session,
+        subject_id,
+      }),
+    });
 
     const data = await response.json();
 
@@ -102,11 +95,9 @@ export default function BatchPage() {
           <tbody>
             {students.map((student) => (
               <tr key={student.id}>
+                <td className="border px-4 py-2">{student.full_name}</td>
                 <td className="border px-4 py-2">
-                  {student.full_name}
-                </td>
-                <td className="border px-4 py-2">
-                  {student.roll_number}
+                  {student.registration_number}
                 </td>
 
                 {Array.from({ length: numberOfCO }, (_, i) => (
@@ -115,11 +106,7 @@ export default function BatchPage() {
                       type="number"
                       className="border p-1 w-20"
                       onChange={(e) =>
-                        handleChange(
-                          student.id,
-                          i + 1,
-                          e.target.value
-                        )
+                        handleChange(student.id, i + 1, e.target.value)
                       }
                     />
                   </td>

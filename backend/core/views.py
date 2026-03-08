@@ -10,7 +10,6 @@ from .models import CourseOutcome
 import openpyxl
 from django.http import HttpResponse
 import json
-
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -257,13 +256,14 @@ def upload_students_csv(request):
                 if Student.objects.filter(
                     roll_number=roll_number.strip(),
                     batch=batch,
-                    session=session
+                    session=session,
+                    # branch=branch
                 ).exists():
                     continue
 
                 Student.objects.create(
                     full_name=full_name.strip(),
-                    roll_number=roll_number.strip(),
+                   roll_number=roll_number.strip(),
                     email=email.strip() if email else None,
                     branch=branch,
                     batch=batch,

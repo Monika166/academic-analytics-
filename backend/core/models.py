@@ -35,7 +35,7 @@ class Subject(models.Model):
 
 class Student(models.Model):
     full_name = models.CharField(max_length=200)
-    roll_number = models.CharField(max_length=50)
+    registration_number = models.CharField(max_length=50)
     email = models.EmailField(blank=True, null=True)
 
     branch = models.CharField(max_length=100)
@@ -46,10 +46,10 @@ class Student(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('roll_number', 'batch', 'session')
+        unique_together = ('registration_number', 'batch', 'session')
 
     def __str__(self):
-        return f"{self.full_name} - {self.roll_number}"
+        return f"{self.full_name} - {self.registration_number}"
 
 
 class CourseOutcome(models.Model):
