@@ -75,7 +75,7 @@ const Navbar: React.FC = () => {
             onClick={() => navigate("/register")}
             className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2.5 rounded-md shadow-lg shadow-blue-700/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
           >
-            Register as Faculty
+            Register 
           </button>
         </div>
       </div>
