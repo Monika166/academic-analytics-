@@ -23,28 +23,28 @@ export default function SubjectDetailsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
   // ✅ FETCH SUBJECTS FILTERED BY BATCH, SESSION, SEMESTER, BRANCH
- useEffect(() => {
-  console.log("CO BASIC DATA:", coBasicData);
+  useEffect(() => {
+    console.log("CO BASIC DATA:", coBasicData);
 
-  fetch("http://127.0.0.1:8000/api/get-subjects-for-co/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      branch: coBasicData.branch,
-      semester: coBasicData.semester,
-      batch: coBasicData.batch,
-      session: coBasicData.session,
-    }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      console.log("SUBJECT DATA:", data);
-      setSubjects(data.subjects || []);
+    fetch("http://127.0.0.1:8000/api/get-subjects-for-co/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        branch: coBasicData.branch,
+        semester: coBasicData.semester,
+        batch: coBasicData.batch,
+        session: coBasicData.session,
+      }),
     })
-    .catch((err) => console.error(err));
-}, []);
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("SUBJECT DATA:", data);
+        setSubjects(data.subjects || []);
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   const handleChange = (e: ChangeEvent<any>) => {
     setFormData({
@@ -65,23 +65,23 @@ export default function SubjectDetailsPage() {
   };
 
   const handleSubmit = (e: FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const selectedSubject = subjects.find(
-    (s) => s.subject_code === formData.subjectCode
-  );
+    const selectedSubject = subjects.find(
+      (s) => s.subject_code === formData.subjectCode,
+    );
 
-  navigate("/batch", {
-    state: {
-      numberOfCO: Number(formData.numberOfCO),
-      branch: coBasicData.branch,
-      batch: coBasicData.batch,
-      semester: coBasicData.semester,
-      session: coBasicData.session,
-      subject_id: selectedSubject?.id, // VERY IMPORTANT
-    },
-  });
-};
+    navigate("/batch", {
+      state: {
+        numberOfCO: Number(formData.numberOfCO),
+        branch: coBasicData.branch,
+        batch: coBasicData.batch,
+        semester: coBasicData.semester,
+        session: coBasicData.session,
+        subject_id: selectedSubject?.id, // VERY IMPORTANT
+      },
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">

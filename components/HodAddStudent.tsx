@@ -253,7 +253,7 @@ const HodAddStudent: React.FC = () => {
                   <table className="w-full border border-slate-200 rounded-xl overflow-hidden">
                     <thead className="bg-slate-100">
                       <tr>
-                        <th className="p-3 text-left">Roll No</th>
+                        <th className="p-3 text-left">Registration No</th>
                         <th className="p-3 text-left">Name</th>
                         <th className="p-3 text-left">Email</th>
                         <th className="p-3 text-left">Semester</th>
@@ -262,7 +262,7 @@ const HodAddStudent: React.FC = () => {
                     <tbody>
                       {students.map((student) => (
                         <tr key={student.id} className="border-t">
-                          <td className="p-3">{student.roll_number}</td>
+                          <td className="p-3">{student.registration_number}</td>
                           <td className="p-3">{student.full_name}</td>
                           <td className="p-3">{student.email}</td>
                           <td className="p-3">{student.semester}</td>
