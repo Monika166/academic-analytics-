@@ -1,3 +1,4 @@
+from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
@@ -471,29 +472,118 @@ def get_branch_semester(request):
 def download_excel(request, branch, semester):
 
     marks = COMark.objects.filter(
-    branch__iexact=branch,
-    semester=semester
-).select_related("student", "subject")
+        branch__iexact=branch,
+        semester=semester
+    ).select_related("student", "subject")
 
     wb = openpyxl.Workbook()
     ws = wb.active
 
-    ws.append([
-        "Student Name",
-        "Registration Number",
-        "Subject",
-        "CO Number",
-        "Marks"
-    ])
+    students = defaultdict(dict)
+    co_set = set()
 
+    # Collect marks per student
     for m in marks:
-        ws.append([
-            m.student.full_name,
-            m.student.registration_number,
-            m.subject.subject_name,
-            f"CO{m.co_number}",
-            m.marks
-        ])
+        reg = m.student.registration_number
+        co = f"CO{m.co_number}"
+
+        students[reg]["name"] = m.student.full_name
+        students[reg]["registration_number"] = reg
+        students[reg]["subject"] = m.subject.subject_name
+        students[reg][co] = m.marks
+
+        co_set.add(co)
+
+    co_list = sorted(co_set)
+
+    headers = ["Student Name", "Registration Number", "Subject"] + co_list + ["Total"]
+    ws.append(headers)
+
+    co_totals = {co: 0 for co in co_list}
+    student_count = 0
+
+    # Write student rows
+    for student in students.values():
+
+        row = [
+            student.get("name"),
+            student.get("registration_number"),
+            student.get("subject")
+        ]
+
+        total = 0
+
+        for co in co_list:
+            mark = student.get(co, 0)
+            row.append(mark)
+
+            total += mark
+            co_totals[co] += mark
+
+        row.append(total)
+        ws.append(row)
+
+        student_count += 1
+
+    # Calculate CO averages
+    co_avg = {}
+    for co in co_list:
+        if student_count > 0:
+            co_avg[co] = round(co_totals[co] / student_count, 2)
+        else:
+            co_avg[co] = 0
+
+    # Count students above average
+    above_avg = {co: 0 for co in co_list}
+
+    for student in students.values():
+        for co in co_list:
+            if student.get(co, 0) >= co_avg[co]:
+                above_avg[co] += 1
+
+    # Calculate CO attainment levels
+    co_attainment = {}
+
+    for co in co_list:
+        percentage = (above_avg[co] / student_count) * 100 if student_count else 0
+
+        if percentage >= 70:
+            co_attainment[co] = 0.9
+        elif percentage >= 60:
+            co_attainment[co] = 0.6
+        elif percentage >= 50:
+            co_attainment[co] = 0.3
+        else:
+            co_attainment[co] = 0
+
+    ws.append([])
+
+    # Average marks row
+    avg_row = ["", "", "Average Marks"]
+    for co in co_list:
+        avg_row.append(co_avg[co])
+    avg_row.append("")
+    ws.append(avg_row)
+
+    # Students >= average
+    count_row = ["", "", "Students ≥ Avg"]
+    for co in co_list:
+        count_row.append(above_avg[co])
+    count_row.append("")
+    ws.append(count_row)
+
+    # CO attainment row
+    attain_row = ["", "", "CO Attainment"]
+    for co in co_list:
+        attain_row.append(co_attainment[co])
+    attain_row.append("")
+    ws.append(attain_row)
+
+    # Average CO attainment
+    avg_attainment = round(sum(co_attainment.values()) / len(co_attainment), 2) if co_attainment else 0
+
+    ws.append([])
+    ws.append(["", "", "Average CO Attainment", avg_attainment])
 
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = f"attachment; filename={branch}_sem{semester}.xlsx"
