@@ -26,9 +26,6 @@ dist-ssr
 __pycache__/
 *.pyc
 
-# SQLite database
-db.sqlite3
-backend/db.sqlite3
 
 # Virtual environment
 venv/

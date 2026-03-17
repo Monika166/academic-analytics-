@@ -56,13 +56,13 @@ const Dashboard: React.FC = () => {
     }
   }, [location.state]);
   useEffect(() => {
-  fetch("http://127.0.0.1:8000/api/branch-semester/")
-    .then((res) => res.json())
-    .then((data) => {
-      setBranchSemesterList(data);
-    })
-    .catch((err) => console.error(err));
-}, []);
+    fetch("http://127.0.0.1:8000/api/branch-semester/")
+      .then((res) => res.json())
+      .then((data) => {
+        setBranchSemesterList(data);
+      })
+      .catch((err) => console.error(err));
+  }, []);
   const handleLogoutConfirm = () => {
     localStorage.removeItem("faculty_name");
     localStorage.removeItem("faculty_id");
@@ -195,45 +195,47 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             branchSemesterList.map((item, index) => (
-  <div
-    key={index}
-    className="bg-white rounded-3xl shadow-md border border-slate-100 p-10 min-h-[220px] hover:shadow-xl transition-all"
-  >
-    <h2 className="text-lg font-bold text-slate-900 mb-6">
-      Semester {item.semester}
-    </h2>
+              <div
+                key={index}
+                className="bg-white rounded-3xl shadow-md border border-slate-100 p-10 min-h-[220px] hover:shadow-xl transition-all"
+              >
+                <h2 className="text-lg font-bold text-slate-900 mb-6">
+                  Semester {item.semester}
+                </h2>
 
-    <div className="space-y-3 text-sm">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Batch</span>
+                    <span className="font-medium">{item.batch}</span>
+                  </div>
 
-  <div className="flex justify-between">
-    <span className="text-slate-500">Batch</span>
-    <span className="font-medium">{item.batch}</span>
-  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Session</span>
+                    <span className="font-medium">{item.session}</span>
+                  </div>
 
-  <div className="flex justify-between">
-    <span className="text-slate-500">Session</span>
-    <span className="font-medium">{item.session}</span>
-  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Branch</span>
+                    <span className="font-medium">{item.branch}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Subject</span>
+                    <span className="font-medium">{item.subject}</span>
+                  </div>
 
-  <div className="flex justify-between">
-    <span className="text-slate-500">Branch</span>
-    <span className="font-medium">{item.branch}</span>
-  </div>
-
-      <button
-        className="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-        onClick={() =>
-          window.open(
-            `http://127.0.0.1:8000/api/download-excel/${item.branch}/${item.semester}/`
-          )
-        }
-      >
-        Download Excel
-      </button>
-
-    </div>
-  </div>
-))
+                  <button
+                    className="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+                    onClick={() =>
+                      window.open(
+                        `http://127.0.0.1:8000/api/download-excel/${item.branch}/${item.semester}/`,
+                      )
+                    }
+                  >
+                    Download Excel
+                  </button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </main>

@@ -461,14 +461,29 @@ def get_co_marks(request):
     return JsonResponse({"error": "Only POST allowed"}, status=405)
 def get_branch_semester(request):
 
-    data = CourseOutcome.objects.values(
-        "batch",
-        "session",
-        "branch",
-        "semester"
-    ).distinct()
+    course_outcomes = CourseOutcome.objects.all()
 
-    return JsonResponse(list(data), safe=False)
+    data = []
+
+    for co in course_outcomes:
+        subjects = Subject.objects.filter(
+            branch__iexact=co.branch,
+            semester=co.semester,
+            batch__iexact=co.batch,
+            session__iexact=co.session,
+            is_active=True
+        )
+
+        for subject in subjects:
+            data.append({
+                "batch": co.batch,
+                "session": co.session,
+                "branch": co.branch,
+                "semester": co.semester,
+                "subject": subject.subject_name,   
+            })
+
+    return JsonResponse(data, safe=False)
 def download_excel(request, branch, semester):
 
     marks = COMark.objects.filter(
