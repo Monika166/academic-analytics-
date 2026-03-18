@@ -92,20 +92,29 @@ def login_faculty(request):
             if not check_password(password, faculty.password):
                 return JsonResponse({"error": "Invalid password"}, status=400)
 
-            # 🔥 ROLE CHECK LOGIC
+                        # 🔥 ROLE CHECK LOGIC (FIXED)
+            designation = faculty.designation.strip().upper()
 
-            # If trying to login from HOD page
             if login_type == "HOD":
-                if faculty.designation.strip().upper() != "HOD":
+                if designation != "HOD":
                     return JsonResponse(
                         {"error": "Access denied. Only HOD can login here."},
                         status=403
                     )
 
-            # If trying to login from FACULTY page
-            if login_type == "FACULTY":
-                # Faculty and HOD both allowed
-                pass
+            elif login_type == "PRINCIPAL":
+                if designation != "PRINCIPAL":
+                    return JsonResponse(
+                        {"error": "Access denied. Only Principal can login here."},
+                        status=403
+                    )
+
+            elif login_type == "FACULTY":
+                if designation not in ["PROFESSOR", "HOD"]:
+                    return JsonResponse(
+                        {"error": "Access denied."},
+                        status=403
+                    )
 
             return JsonResponse({
                 "message": "Login successful",
