@@ -251,8 +251,9 @@ return (
                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm appearance-none"
                   >
                     <option value="">Select Designation</option>
-                    <option value="Professor">Professor</option>
+                    <option value="Principal">Principal</option>
                     <option value="HOD">HOD</option>
+                    <option value="Professor">Professor</option>
                   </select>
                 </div>
               </div>
@@ -384,10 +385,12 @@ return (
           </p>
           <button
             onClick={() => {
-              const designation = localStorage.getItem("faculty_designation");
-              if (designation?.toUpperCase() === "HOD")  {
+              const designation = localStorage.getItem("faculty_designation")?.toUpperCase();;
+              if (designation === "HOD")  {
                 navigate("/hod-login");
-              } else {
+              }else if (designation === "PRINCIPAL") {
+    navigate("/principal-login");} 
+              else {
                 navigate("/login");
               }
             }}

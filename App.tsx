@@ -12,7 +12,8 @@ import AddSubject from "./components/AddSubject";
 import HodAddStudent from "./components/HodAddStudent";
 import EditSubject from "./components/EditSubject";
 import BatchPage from "./components/BatchPage";
-
+import PrincipalLogin from "./components/PrincipalLogin";
+import PrincipalDashboard from "./components/PrincipalDashboard";
 import HodSubjectDetails from "./components/HodSubjectDetails";
 const App = () => {
   return (
@@ -32,6 +33,9 @@ const App = () => {
         <Route path="/hod-add-student" element={<HodAddStudent />} />
         <Route path="/edit-subject" element={<EditSubject />} />
         <Route path="/batch" element={<BatchPage />} />
+        <Route path="/principal-login" element={<PrincipalLogin />} />
+        <Route path="/test" element={<h1>TEST WORKING</h1>} />
+        <Route path="/principal-dashboard" element={<PrincipalDashboard />} />
       </Routes>
     </Router>
   );
