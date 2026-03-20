@@ -53,7 +53,16 @@ class Student(models.Model):
 
 
 class CourseOutcome(models.Model):
-
+       faculty = models.ForeignKey(
+        Faculty,
+        on_delete=models.CASCADE,
+        related_name="course_outcomes", null=True, blank=True
+    )
+       subject = models.ForeignKey(Subject, on_delete=models.CASCADE,related_name="course_outcomes", null=True, blank=True)
+       co_number = models.IntegerField(null=True, blank=True)
+    
+       class Meta:
+         unique_together = ['subject', 'co_number']
        batch = models.CharField(max_length=20, null=True, blank=True)
        session = models.CharField(max_length=50, null=True, blank=True)
        branch = models.CharField(max_length=100, null=True, blank=True)
