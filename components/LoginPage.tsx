@@ -111,7 +111,7 @@ const LoginPage: React.FC = () => {
                 ))}
               </div>
               <p className="text-sm text-blue-200">
-                Joined by 200+ Faculty Members this month
+                Built for modern academic analytics and evaluation
               </p>
             </div>
           </div>
@@ -219,9 +219,7 @@ const LoginPage: React.FC = () => {
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-100"></div>
                 </div>
-               
               </div>
-
             </form>
 
             <div className="mt-12 text-center">

@@ -56,13 +56,16 @@ const Dashboard: React.FC = () => {
     }
   }, [location.state]);
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/branch-semester/")
+    const facultyId = localStorage.getItem("faculty_id");
+
+    fetch(`http://127.0.0.1:8000/api/branch-semester/?faculty_id=${facultyId}`)
       .then((res) => res.json())
       .then((data) => {
         setBranchSemesterList(data);
       })
       .catch((err) => console.error(err));
-  }, []);
+  }, [location]);
+
   const handleLogoutConfirm = () => {
     localStorage.removeItem("faculty_name");
     localStorage.removeItem("faculty_id");
@@ -227,7 +230,7 @@ const Dashboard: React.FC = () => {
                     className="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
                     onClick={() =>
                       window.open(
-                        `http://127.0.0.1:8000/api/download-excel/${item.branch}/${item.semester}/`,
+                        `http://127.0.0.1:8000/api/download-excel/${item.branch}/${item.semester}/?subject=${item.subject}`,
                       )
                     }
                   >

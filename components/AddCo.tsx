@@ -1,10 +1,8 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 export default function AddCOPage() {
   const navigate = useNavigate();
-
   const [formData, setFormData] = useState({
     batch: "",
     session: "",
@@ -19,37 +17,14 @@ export default function AddCOPage() {
     });
   };
 
- const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
 
-  try {
-    const response = await fetch("http://127.0.0.1:8000/api/add-co/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),   // simpler
+    // ✅ Just move to next step
+    navigate("/subject-details", {
+      state: formData,
     });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert("Course Outcome Added Successfully!");
-
-      // navigate to subject-details to enter marks
-      navigate("/subject-details", {
-        state: formData,
-      });
-
-    } else {
-      alert(data.error || "Something went wrong");
-    }
-
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Server error. Check backend.");
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,24 +78,22 @@ export default function AddCOPage() {
               />
             </div>
             {/* Branch */}
-<div>
-  <label className="block text-sm font-semibold mb-2">
-    BRANCH
-  </label>
-  <select
-    name="branch"
-    value={formData.branch}
-    onChange={handleChange}
-    required
-    className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  >
-    <option value="">Choose Branch</option>
-                    <option value="CSE">Computer Science (CSE)</option>
-                    <option value="ECE">Electronics & Comm (ECE)</option>
-                    <option value="ME">Mechanical Engineering</option>
-                    <option value="CE">Civil Engineering</option>
-  </select>
-</div>
+            <div>
+              <label className="block text-sm font-semibold mb-2">BRANCH</label>
+              <select
+                name="branch"
+                value={formData.branch}
+                onChange={handleChange}
+                required
+                className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Choose Branch</option>
+                <option value="CSE">Computer Science (CSE)</option>
+                <option value="ECE">Electronics & Comm (ECE)</option>
+                <option value="ME">Mechanical Engineering</option>
+                <option value="CE">Civil Engineering</option>
+              </select>
+            </div>
 
             {/* Semester */}
             <div>

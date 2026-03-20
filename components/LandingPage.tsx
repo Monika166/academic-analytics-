@@ -54,7 +54,7 @@ const LandingPage = () => {
                 onClick={() => navigate("/register")}
                 className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-5 rounded-md shadow-lg shadow-blue-700/20 transition-all hover:-translate-y-1 flex-1 sm:flex-none min-w-[200px]"
               >
-                Register 
+                Register
               </button>
 
               {/* HOD Specific Login (Blue) */}
@@ -359,7 +359,7 @@ const LandingPage = () => {
             </a>
           </div>
           <div className="text-sm text-slate-400">
-            © 2024 Academic Analytics System.
+            © 2026 Academic Analytics System.
           </div>
         </div>
       </footer>

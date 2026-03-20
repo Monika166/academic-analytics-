@@ -44,12 +44,35 @@ export default function BatchPage() {
     }));
   };
 
-  // ✅ Submit Marks (Correct API)
   const handleSubmit = async () => {
     if (Object.keys(marks).length === 0) {
       alert("Please enter marks before submitting");
       return;
     }
+
+    // ✅ STEP 1: CREATE CO
+    const coResponse = await fetch("http://127.0.0.1:8000/api/add-co/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        faculty_id: localStorage.getItem("faculty_id"),
+        subject_id,
+        branch,
+        batch,
+        semester,
+        session,
+      }),
+    });
+
+    const coData = await coResponse.json();
+
+    // ❌ STOP IF ERROR
+    if (!coResponse.ok) {
+      alert(coData.error || "Error creating Course Outcome");
+      return; // 🔥 VERY IMPORTANT
+    }
+
+    // ✅ STEP 2: SAVE MARKS
     const response = await fetch("http://127.0.0.1:8000/api/save-co-marks/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

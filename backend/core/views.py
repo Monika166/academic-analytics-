@@ -338,18 +338,49 @@ def add_course_outcome(request):
             session = data.get("session")
             semester = data.get("semester")
             branch = data.get("branch")
+            faculty_id = data.get("faculty_id")
+            subject_id = data.get("subject_id")
 
-            if not batch or not session or not semester:
+            # ✅ Basic validation
+            if not all([batch, session, semester, faculty_id, subject_id]):
                 return JsonResponse(
                     {"error": "All fields are required"},
                     status=400
                 )
 
+            # ✅ Safe faculty fetch
+            try:
+                faculty = Faculty.objects.get(id=faculty_id)
+            except Faculty.DoesNotExist:
+                return JsonResponse({"error": "Invalid faculty"}, status=400)
+
+            # ✅ Safe subject fetch
+            try:
+                subject = Subject.objects.get(id=subject_id)
+            except Subject.DoesNotExist:
+                return JsonResponse({"error": "Invalid subject"}, status=400)
+
+            # ✅ Prevent duplicate CO
+            existing_co = CourseOutcome.objects.filter(
+                subject=subject,
+                batch=batch,
+                semester=int(semester),
+                session=session
+            ).first()
+
+            if existing_co:
+                return JsonResponse({
+                    "error": "Course Outcome already exists for this subject"
+                }, status=400)
+
+            # ✅ Create CO
             co = CourseOutcome.objects.create(
+                faculty=faculty,
+                subject=subject,
                 batch=batch,
                 session=session,
                 semester=int(semester),
-                branch=branch 
+                branch=branch
             )
 
             return JsonResponse({
@@ -468,36 +499,35 @@ def get_co_marks(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Only POST allowed"}, status=405)
+@csrf_exempt
 def get_branch_semester(request):
+    faculty_id = request.GET.get("faculty_id")
 
-    course_outcomes = CourseOutcome.objects.all()
+    if not faculty_id:
+        return JsonResponse({"error": "Faculty ID required"}, status=400)
+
+    # ✅ Get COs (already linked to subject)
+    course_outcomes = CourseOutcome.objects.filter(faculty_id=faculty_id)
 
     data = []
 
     for co in course_outcomes:
-        subjects = Subject.objects.filter(
-            branch__iexact=co.branch,
-            semester=co.semester,
-            batch__iexact=co.batch,
-            session__iexact=co.session,
-            is_active=True
-        )
-
-        for subject in subjects:
-            data.append({
-                "batch": co.batch,
-                "session": co.session,
-                "branch": co.branch,
-                "semester": co.semester,
-                "subject": subject.subject_name,   
-            })
+        data.append({
+            "batch": co.batch,
+            "session": co.session,
+            "branch": co.branch,
+            "semester": co.semester,
+            "subject": co.subject.subject_name,   # ✅ correct mapping
+            "subject_id": co.subject.id,          # ✅ important
+        })
 
     return JsonResponse(data, safe=False)
 def download_excel(request, branch, semester):
-
+    subject_name = request.GET.get("subject")
     marks = COMark.objects.filter(
         branch__iexact=branch,
-        semester=semester
+        semester=semester,
+        subject__subject_name=subject_name 
     ).select_related("student", "subject")
 
     wb = openpyxl.Workbook()
@@ -610,7 +640,7 @@ def download_excel(request, branch, semester):
     ws.append(["", "", "Average CO Attainment", avg_attainment])
 
     response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f"attachment; filename={branch}_sem{semester}.xlsx"
+    response["Content-Disposition"] = f"attachment; filename={subject_name}_{branch}_sem{semester}.xlsx"
 
     wb.save(response)
 
