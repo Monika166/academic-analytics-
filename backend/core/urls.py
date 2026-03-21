@@ -13,6 +13,9 @@ urlpatterns = [
     path('get-students/', views.get_students),
     path('upload-students/', views.upload_students_csv),
     path('get-co-marks/', views.get_co_marks),
-   path("branch-semester/", views.get_branch_semester),
-path("download-excel/<str:branch>/<int:semester>/", views.download_excel),
+    path("branch-semester/", views.get_branch_semester),
+    path("download-excel/<str:branch>/<int:semester>/", views.download_excel),
+    path('principal/stats/', views.principal_dashboard_stats),
+    path('all-students/', views.get_all_students),
+    path('export-students/', views.export_students_excel),
 ]
