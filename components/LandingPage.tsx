@@ -50,13 +50,6 @@ const LandingPage = () => {
 
             <div className="flex flex-wrap gap-4 justify-center pt-4">
               {/* Primary Action */}
-              <button
-                onClick={() => navigate("/register")}
-                className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-5 rounded-md shadow-lg shadow-blue-700/20 transition-all hover:-translate-y-1 flex-1 sm:flex-none min-w-[200px]"
-              >
-                Register
-              </button>
-
               {/* HOD Specific Login (Blue) */}
               <button
                 onClick={() => navigate("/hod-login")}
@@ -64,11 +57,17 @@ const LandingPage = () => {
               >
                 HOD Login
               </button>
-
+              {/* Principal Login */}
+              <button
+                onClick={() => navigate("/principal-login")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-5 rounded-md shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-1 flex-1 sm:flex-none min-w-[160px]"
+              >
+                Principal Login
+              </button>
               {/* Faculty Login (Secondary) */}
               <button
                 onClick={() => navigate("/login")}
-                className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold px-8 py-5 rounded-md transition-all flex-1 sm:flex-none min-w-[160px]"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-5 rounded-md shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-1 flex-1 sm:flex-none min-w-[160px]"
               >
                 Faculty Login
               </button>
