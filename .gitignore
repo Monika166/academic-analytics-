@@ -7,27 +7,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# Env files
+.env
 *.local
 
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+
 # Python / Django
 __pycache__/
 *.pyc
-# SQLite database
+
+# SQLite DB
 *.sqlite3
 
-# Virtual environment
+# Virtual Environments
 venv/
-.env
+.venv/
+
+# OS
+Thumbs.db
