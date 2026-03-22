@@ -38,8 +38,7 @@ def register_faculty(request):
 
             # Logic to ensure branch is only saved if designation is HOD
             # This matches your frontend's .toUpperCase() logic
-            final_branch = branch if designation.strip().upper() == "HOD" else None
-
+            final_branch = branch 
             # Create user with the new branch field
             faculty = Faculty.objects.create(
                 full_name=full_name,
@@ -644,4 +643,67 @@ def download_excel(request, branch, semester):
 
     wb.save(response)
 
+    return response
+def principal_dashboard_stats(request):
+    data = {
+        "students": Student.objects.count(),
+        "faculty": Faculty.objects.count(),
+        "subjects": Subject.objects.count(),
+    }
+    return JsonResponse(data)
+def get_all_students(request):
+    if request.method == "GET":
+        students = Student.objects.all()
+
+        student_list = []
+
+        for student in students:
+            student_list.append({
+                "id": student.id,
+                "full_name": student.full_name,
+                "registration_number": student.registration_number,
+                "email": student.email,
+                "branch": student.branch,
+                "semester": student.semester,
+            })
+
+        return JsonResponse(student_list, safe=False)
+
+    return JsonResponse({"error": "Only GET allowed"}, status=405)
+def export_students_excel(request):
+    import openpyxl
+    from django.http import HttpResponse
+    from .models import Student
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Students"
+
+    ws.append(["Name", "Registration No", "Branch", "Semester"])
+
+    branch = request.GET.get("branch")
+    semester = request.GET.get("semester")
+
+    students = Student.objects.all()
+
+    if branch:
+        students = students.filter(branch__iexact=branch)
+
+    if semester:
+        students = students.filter(semester=semester)
+
+    for s in students:
+        ws.append([
+            s.full_name,
+            s.registration_number,
+            s.branch,
+            s.semester
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=students.xlsx"
+
+    wb.save(response)
     return response
