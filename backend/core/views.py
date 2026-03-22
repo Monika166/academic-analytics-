@@ -38,8 +38,7 @@ def register_faculty(request):
 
             # Logic to ensure branch is only saved if designation is HOD
             # This matches your frontend's .toUpperCase() logic
-            final_branch = branch if designation.strip().upper() == "HOD" else None
-
+            final_branch = branch 
             # Create user with the new branch field
             faculty = Faculty.objects.create(
                 full_name=full_name,
