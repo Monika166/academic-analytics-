@@ -671,23 +671,25 @@ const PrincipalDashboard: React.FC = () => {
 
               {/* SUBJECT */}
               <select
-  value={selectedSubject}
-  onChange={(e) => setSelectedSubject(e.target.value)}
-  className="border px-4 py-2 rounded"
->
-  <option value="">All Subjects</option>
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">All Subjects</option>
 
-  {[...new Map(
-    coData.map((c) => [
-      c.subject_code,
-      `${c.subject_name} (${c.subject_code})`
-    ])
-  ).values()].map((subject, i) => (
-    <option key={i} value={subject}>
-      {subject}
-    </option>
-  ))}
-</select>
+                {[
+                  ...new Map(
+                    coData.map((c) => [
+                      c.subject_code,
+                      `${c.subject_name} (${c.subject_code})`,
+                    ]),
+                  ).values(),
+                ].map((subject, i) => (
+                  <option key={i} value={subject}>
+                    {subject}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* TABLE */}
