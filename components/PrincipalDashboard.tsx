@@ -143,13 +143,13 @@ const PrincipalDashboard: React.FC = () => {
   });
 
   const filteredFaculty = faculty.filter((f) => {
-    return (
-      (selectedFacultyBranch === "" ||
-        f.branch?.toUpperCase() === selectedFacultyBranch) &&
-      (selectedDesignation === "" ||
-        f.designation?.toUpperCase() === selectedDesignation)
-    );
-  });
+  return (
+    (selectedFacultyBranch === "" ||
+      f.branch?.toUpperCase().trim() === selectedFacultyBranch) &&
+    (selectedDesignation === "" ||
+      f.designation?.toUpperCase().trim() === selectedDesignation)
+  );
+});
 
   const filteredCO = coData.filter((c) => {
     return (
@@ -471,7 +471,7 @@ const PrincipalDashboard: React.FC = () => {
                   >
                     <option value="">All Designations</option>
                     <option value="HOD">HOD</option>
-                    <option value="FACULTY">Faculty</option>
+                    <option value="PROFESSOR">Professor</option>
                   </select>
                 </div>
 

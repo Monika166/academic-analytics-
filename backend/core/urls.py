@@ -18,4 +18,11 @@ urlpatterns = [
     path('principal/stats/', views.principal_dashboard_stats),
     path('all-students/', views.get_all_students),
     path('export-students/', views.export_students_excel),
+    path('all-faculty/', views.get_all_faculty),
+path('export-faculty/', views.export_faculty_excel),
+path('upload-faculty/', views.upload_faculty_csv),
+path('all-subjects/', views.get_all_subjects),
+path('export-subjects/', views.export_subjects_excel),
+path('get-co-marks/', views.get_co_marks),
+path('export-co-marks/', views.export_co_marks_excel),
 ]
