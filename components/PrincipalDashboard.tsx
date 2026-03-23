@@ -43,6 +43,9 @@ const PrincipalDashboard: React.FC = () => {
   const [showSubjects, setShowSubjects] = useState(false);
   const [selectedSubjectBranch, setSelectedSubjectBranch] = useState("");
   const [selectedSubjectSemester, setSelectedSubjectSemester] = useState("");
+
+  const [coaData, setCoaData] = useState<any[]>([]);
+  const [showCOA, setShowCOA] = useState(false);
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -115,6 +118,20 @@ const PrincipalDashboard: React.FC = () => {
     };
 
     fetchSubjects();
+  }, []);
+
+  useEffect(() => {
+    const fetchCOA = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/coa-data/");
+        const data = await res.json();
+        setCoaData(data);
+      } catch (error) {
+        console.error("Error fetching COA:", error);
+      }
+    };
+
+    fetchCOA();
   }, []);
 
   const filteredStudents = students.filter((student) => {
@@ -531,6 +548,14 @@ const PrincipalDashboard: React.FC = () => {
             <h3 className="text-slate-500 text-sm">CO Analytics</h3>
             <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
           </div>
+          {/* COA */}
+          <div
+            onClick={() => setShowCOA(true)}
+            className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
+          >
+            <h3 className="text-slate-500 text-sm">Course Attainment</h3>
+            <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
+          </div>
         </div>
       </div>
 
@@ -734,6 +759,81 @@ const PrincipalDashboard: React.FC = () => {
                 onClick={() => {
                   const url = `http://127.0.0.1:8000/api/export-co/?branch=${selectedCOBranch}&subject=${selectedSubject}`;
                   window.open(url, "_blank");
+                }}
+                className="bg-blue-700 text-white px-4 py-2 rounded shadow"
+              >
+                Export Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCOA && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+          <div className="relative bg-white w-[90%] max-w-5xl rounded-2xl shadow-xl p-6 z-10">
+            {/* HEADER */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Course Attainment (COA)</h3>
+
+              <button
+                onClick={() => setShowCOA(false)}
+                className="text-red-500 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* TABLE */}
+            <div className="bg-white border rounded-lg overflow-x-auto max-h-[400px]">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-xs sticky top-0">
+                  <tr>
+                    <th className="px-6 py-3">Branch</th>
+                    <th className="px-6 py-3">Subject</th>
+                    <th className="px-6 py-3">Semester</th>
+                    <th className="px-6 py-3">Course Attainment</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {coaData.length > 0 ? (
+                    coaData.map((c, index) => (
+                      <tr key={index} className="border-t hover:bg-slate-50">
+                        <td className="px-6 py-3">{c.branch}</td>
+                        <td className="px-6 py-3">
+                          {c.subject_name} ({c.subject_code})
+                        </td>
+                        <td className="px-6 py-3">{c.semester}</td>
+                        <td className="px-6 py-3 font-semibold text-blue-700">
+                          {c.coa_value}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="text-center py-6 text-slate-400"
+                      >
+                        No COA data found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* EXPORT */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  window.open(
+                    "http://127.0.0.1:8000/api/export-coa/",
+                    "_blank",
+                  );
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >
