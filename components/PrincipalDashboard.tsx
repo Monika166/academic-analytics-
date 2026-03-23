@@ -16,6 +16,8 @@ const PrincipalDashboard: React.FC = () => {
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [coAnalyticsData, setCoAnalyticsData] = useState<any[]>([]);
+  const [coColumns, setCoColumns] = useState<string[]>([]);
 
   const [principalName, setPrincipalName] = useState("Principal");
   const [students, setStudents] = useState<any[]>([]);
@@ -37,7 +39,7 @@ const PrincipalDashboard: React.FC = () => {
   const [showCO, setShowCO] = useState(false);
 
   const [selectedCOBranch, setSelectedCOBranch] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
   const [subjects, setSubjects] = useState<any[]>([]);
   const [showSubjects, setShowSubjects] = useState(false);
@@ -46,6 +48,55 @@ const PrincipalDashboard: React.FC = () => {
 
   const [coaData, setCoaData] = useState<any[]>([]);
   const [showCOA, setShowCOA] = useState(false);
+  const fetchCOAnalytics = async () => {
+    if (!selectedCOBranch || !selectedSubjectId) return;
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/co-analytics/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          branch: selectedCOBranch,
+          subject_id: selectedSubjectId,
+        }),
+      });
+
+      const data = await res.json();
+
+      setCoAnalyticsData(data.data);
+      setCoColumns(data.co_list);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  //const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [branch, setBranch] = useState("");
+  const [semester, setSemester] = useState("");
+  useEffect(() => {
+    let filtered = coaData;
+
+    if (branch) {
+      filtered = filtered.filter(
+        (item) =>
+          item.branch?.toUpperCase().trim() === branch.toUpperCase().trim(),
+      );
+    }
+
+    if (semester) {
+      filtered = filtered.filter(
+        (item) => item.semester.toString() === semester,
+      );
+    }
+
+    setFilteredData(filtered);
+  }, [branch, semester, coaData]);
+
+  useEffect(() => {
+    fetchCOAnalytics();
+  }, [selectedSubjectId]);
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -92,20 +143,19 @@ const PrincipalDashboard: React.FC = () => {
     fetchFaculty();
   }, []);
 
-  useEffect(() => {
-    const fetchCO = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/co-data/");
-        const data = await res.json();
-        setCoData(data);
-      } catch (error) {
-        console.error("Error fetching CO:", error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchCO = async () => {
+  //     try {
+  //       const res = await fetch("http://127.0.0.1:8000/api/co-data/");
+  //       const data = await res.json();
+  //       setCoData(data);
+  //     } catch (error) {
+  //       console.error("Error fetching CO:", error);
+  //     }
+  //   };
 
-    fetchCO();
-  }, []);
-
+  //   fetchCO();
+  // }, []);
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
@@ -123,9 +173,11 @@ const PrincipalDashboard: React.FC = () => {
   useEffect(() => {
     const fetchCOA = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/coa-data/");
+        const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
         const data = await res.json();
+        console.log("API RESPONSE:", data);
         setCoaData(data);
+        setFilteredData(data);
       } catch (error) {
         console.error("Error fetching COA:", error);
       }
@@ -143,19 +195,19 @@ const PrincipalDashboard: React.FC = () => {
   });
 
   const filteredFaculty = faculty.filter((f) => {
-  return (
-    (selectedFacultyBranch === "" ||
-      f.branch?.toUpperCase().trim() === selectedFacultyBranch) &&
-    (selectedDesignation === "" ||
-      f.designation?.toUpperCase().trim() === selectedDesignation)
-  );
-});
+    return (
+      (selectedFacultyBranch === "" ||
+        f.branch?.toUpperCase().trim() === selectedFacultyBranch) &&
+      (selectedDesignation === "" ||
+        f.designation?.toUpperCase().trim() === selectedDesignation)
+    );
+  });
 
   const filteredCO = coData.filter((c) => {
     return (
       (selectedCOBranch === "" ||
         c.branch?.toUpperCase() === selectedCOBranch) &&
-      (selectedSubject === "" || c.subject_code === selectedSubject)
+      (selectedSubjectId === "" || c.subject_id == selectedSubjectId)
     );
   });
 
@@ -191,7 +243,7 @@ const PrincipalDashboard: React.FC = () => {
   ];
   const coBranches = [
     ...new Set(
-      coData.map((c) => c.branch?.trim().toUpperCase()).filter(Boolean),
+      students.map((s) => s.branch?.trim().toUpperCase()).filter(Boolean),
     ),
   ];
 
@@ -206,6 +258,27 @@ const PrincipalDashboard: React.FC = () => {
     setIsLogoutModalOpen(false);
     navigate("/principal-login");
   };
+  const coAverages: Record<string, number> = {};
+  const coAboveAvg: Record<string, number> = {};
+
+  if (coAnalyticsData.length > 0) {
+    coColumns.forEach((co) => {
+      const total = coAnalyticsData.reduce(
+        (sum, row) => sum + (row[co] || 0),
+        0,
+      );
+
+      coAverages[co] = Number((total / coAnalyticsData.length).toFixed(2));
+    });
+
+    coColumns.forEach((co) => {
+      const count = coAnalyticsData.filter(
+        (row) => (row[co] || 0) >= coAverages[co],
+      ).length;
+
+      coAboveAvg[co] = count;
+    });
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -696,57 +769,92 @@ const PrincipalDashboard: React.FC = () => {
 
               {/* SUBJECT */}
               <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
                 className="border px-4 py-2 rounded"
               >
                 <option value="">All Subjects</option>
 
-                {[
-                  ...new Map(
-                    coData.map((c) => [
-                      c.subject_code,
-                      `${c.subject_name} (${c.subject_code})`,
-                    ]),
-                  ).values(),
-                ].map((subject, i) => (
-                  <option key={i} value={subject}>
-                    {subject}
-                  </option>
-                ))}
+                {subjects
+                  .filter(
+                    (s) =>
+                      !selectedCOBranch ||
+                      s.branch?.toUpperCase().trim() === selectedCOBranch,
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.subject_name} ({s.subject_code})
+                    </option>
+                  ))}
               </select>
             </div>
 
             {/* TABLE */}
             <div className="bg-white border rounded-lg overflow-x-auto max-h-[400px]">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs sticky top-0">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
                   <tr>
-                    <th className="px-6 py-3">Student Name</th>
-                    <th className="px-6 py-3">Reg No</th>
-                    <th className="px-6 py-3">Subject Code</th>
-                    <th className="px-6 py-3">CO Score</th>
+                    <th className="px-4 py-2">Student Name</th>
+                    <th className="px-4 py-2">Reg No</th>
+                    <th className="px-4 py-2">Subject</th>
+
+                    {coColumns.map((co, index) => (
+                      <th key={index} className="px-4 py-2">
+                        {co}
+                      </th>
+                    ))}
+
+                    <th className="px-4 py-2">Total</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredCO.length > 0 ? (
-                    filteredCO.map((c, index) => (
-                      <tr key={index} className="border-t hover:bg-slate-50">
-                        <td className="px-6 py-3">{c.student_name}</td>
-                        <td className="px-6 py-3">{c.registration_number}</td>
-                        <td className="px-6 py-3">{c.subject_code}</td>
-                        <td className="px-6 py-3">{c.co_score}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="text-center py-6 text-slate-400"
-                      >
-                        No CO data found
-                      </td>
+                  {/* STUDENT ROWS */}
+                  {coAnalyticsData.map((row, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="px-4 py-2">{row.name}</td>
+                      <td className="px-4 py-2">{row.registration_number}</td>
+                      <td className="px-4 py-2">{row.subject}</td>
+
+                      {coColumns.map((co, i) => (
+                        <td key={i} className="px-4 py-2">
+                          {row[co] || 0}
+                        </td>
+                      ))}
+
+                      <td className="px-4 py-2 font-bold">{row.total}</td>
+                    </tr>
+                  ))}
+
+                  {/* 🔥 AVERAGE ROW */}
+                  {coAnalyticsData.length > 0 && (
+                    <tr className="bg-blue-50 font-semibold">
+                      <td className="px-4 py-2" colSpan={2}></td>
+                      <td className="px-4 py-2">Average Marks</td>
+
+                      {coColumns.map((co, i) => (
+                        <td key={i} className="px-4 py-2">
+                          {coAverages[co]}
+                        </td>
+                      ))}
+
+                      <td></td>
+                    </tr>
+                  )}
+
+                  {/* 🔥 STUDENTS ≥ AVG ROW */}
+                  {coAnalyticsData.length > 0 && (
+                    <tr className="bg-green-50 font-semibold">
+                      <td className="px-4 py-2" colSpan={2}></td>
+                      <td className="px-4 py-2">Students ≥ Avg</td>
+
+                      {coColumns.map((co, i) => (
+                        <td key={i} className="px-4 py-2">
+                          {coAboveAvg[co]}
+                        </td>
+                      ))}
+
+                      <td></td>
                     </tr>
                   )}
                 </tbody>
@@ -757,12 +865,19 @@ const PrincipalDashboard: React.FC = () => {
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => {
-                  const url = `http://127.0.0.1:8000/api/export-co/?branch=${selectedCOBranch}&subject=${selectedSubject}`;
+                  const selectedSub = subjects.find(
+                    (s) => s.id == selectedSubjectId,
+                  );
+
+                  const semester = selectedSub?.semester || 1;
+
+                  const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${selectedSub?.subject_name}`;
+
                   window.open(url, "_blank");
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >
-                Export Excel
+                Download Excel
               </button>
             </div>
           </div>
@@ -785,7 +900,39 @@ const PrincipalDashboard: React.FC = () => {
                 ✕
               </button>
             </div>
+            <div className="flex gap-4 mb-4">
+              {/* Branch */}
+              <select
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">All Branches</option>
+                {[...new Set(coaData.map((c) => c.branch).filter(Boolean))].map(
+                  (b, i) => (
+                    <option key={i} value={b}>
+                      {b}
+                    </option>
+                  ),
+                )}
+              </select>
 
+              {/* Semester */}
+              <select
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">All Semesters</option>
+                {[
+                  ...new Set(coaData.map((c) => c.semester).filter(Boolean)),
+                ].map((s, i) => (
+                  <option key={i} value={s}>
+                    Sem {s}
+                  </option>
+                ))}
+              </select>
+            </div>
             {/* TABLE */}
             <div className="bg-white border rounded-lg overflow-x-auto max-h-[400px]">
               <table className="w-full text-sm text-left">
@@ -799,16 +946,14 @@ const PrincipalDashboard: React.FC = () => {
                 </thead>
 
                 <tbody>
-                  {coaData.length > 0 ? (
-                    coaData.map((c, index) => (
+                  {filteredData.length > 0 ? (
+                    filteredData.map((c, index) => (
                       <tr key={index} className="border-t hover:bg-slate-50">
                         <td className="px-6 py-3">{c.branch}</td>
-                        <td className="px-6 py-3">
-                          {c.subject_name} ({c.subject_code})
-                        </td>
+                        <td className="px-6 py-3">{c.subject}</td>
                         <td className="px-6 py-3">{c.semester}</td>
                         <td className="px-6 py-3 font-semibold text-blue-700">
-                          {c.coa_value}
+                          {c.attainment}
                         </td>
                       </tr>
                     ))
@@ -825,15 +970,42 @@ const PrincipalDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
-
             {/* EXPORT */}
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => {
-                  window.open(
-                    "http://127.0.0.1:8000/api/export-coa/",
-                    "_blank",
-                  );
+                  if (filteredData.length === 0) {
+                    alert("No data to export");
+                    return;
+                  }
+
+                  // Create CSV content
+                  const headers = [
+                    "Branch",
+                    "Subject",
+                    "Semester",
+                    "Attainment",
+                  ];
+
+                  const rows = filteredData.map((item) => [
+                    item.branch,
+                    item.subject,
+                    item.semester,
+                    item.attainment,
+                  ]);
+
+                  const csvContent = [headers, ...rows]
+                    .map((row) => row.join(","))
+                    .join("\n");
+
+                  // Create file and download
+                  const blob = new Blob([csvContent], { type: "text/csv" });
+                  const url = window.URL.createObjectURL(blob);
+
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "COA_Report.csv";
+                  a.click();
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >

@@ -11,6 +11,7 @@ from .models import CourseOutcome
 import openpyxl
 from django.http import HttpResponse
 import json
+import pandas as pd
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -911,3 +912,144 @@ def export_co_marks_excel(request):
 
     wb.save(response)
     return response
+@csrf_exempt
+def get_co_analytics(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            branch = data.get("branch")
+            subject_id = data.get("subject_id")
+
+            marks = COMark.objects.filter(
+                branch__iexact=branch,
+                subject_id=subject_id
+            ).select_related("student", "subject")
+
+            from collections import defaultdict
+
+            students = defaultdict(dict)
+            co_set = set()
+
+            for m in marks:
+                reg = m.student.registration_number
+
+                students[reg]["name"] = m.student.full_name
+                students[reg]["registration_number"] = reg
+                students[reg]["subject"] = m.subject.subject_name
+
+                co_key = f"CO{m.co_number}"
+                students[reg][co_key] = m.marks
+
+                co_set.add(co_key)
+
+            co_list = sorted(co_set)
+
+            result = []
+            for student in students.values():
+                row = {
+                    "name": student["name"],
+                    "registration_number": student["registration_number"],
+                    "subject": student["subject"],
+                }
+
+                total = 0
+                for co in co_list:
+                    mark = student.get(co, 0)
+                    row[co] = mark
+                    total += mark
+
+                row["total"] = total
+                result.append(row)
+
+            return JsonResponse({
+                "data": result,
+                "co_list": co_list
+            })
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "POST only"}, status=405)
+@csrf_exempt
+def course_attainment(request):
+    try:
+        marks = COMark.objects.select_related("student", "subject")
+
+        from collections import defaultdict
+
+        subject_data = defaultdict(lambda: defaultdict(list))
+
+        # Group marks
+        for m in marks:
+            key = (m.subject.subject_name, m.branch, m.semester)
+            subject_data[key][f"CO{m.co_number}"].append(m.marks)
+
+        results = []
+
+        for (subject, branch, semester), co_dict in subject_data.items():
+
+            attainment_list = []
+
+            for co, marks_list in co_dict.items():
+                total_students = len(marks_list)
+                avg = sum(marks_list) / total_students
+
+                above_avg = sum(1 for m in marks_list if m >= avg)
+
+                percentage = (above_avg / total_students) * 100
+
+                # SAME LOGIC AS download_excel
+                if percentage >= 70:
+                    attainment = 0.9
+                elif percentage >= 60:
+                    attainment = 0.6
+                elif percentage >= 50:
+                    attainment = 0.3
+                else:
+                    attainment = 0
+
+                attainment_list.append(attainment)
+
+            final_attainment = sum(attainment_list) / len(attainment_list)
+
+            results.append({
+                "branch": branch,
+                "subject": subject,
+                "semester": semester,
+                "attainment": round(final_attainment, 2)
+            })
+
+        return JsonResponse(results, safe=False)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+from django.http import HttpResponse
+import pandas as pd
+from io import BytesIO
+import json
+
+@csrf_exempt
+def export_coa(request):
+    try:
+        body = json.loads(request.body)
+        data = body.get("data", [])
+
+        df = pd.DataFrame(data)
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name="COA")
+
+        output.seek(0)
+
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=COA_Report.xlsx'
+
+        return response
+
+    except Exception as e:
+        return HttpResponse(str(e), status=500)
