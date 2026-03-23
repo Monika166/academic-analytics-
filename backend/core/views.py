@@ -290,6 +290,56 @@ def upload_students_csv(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Only POST allowed"}, status=405)
+
+@csrf_exempt
+@csrf_exempt
+def upload_faculty_csv(request):
+    if request.method == "POST":
+        try:
+            csv_file = request.FILES.get("file")
+
+            if not csv_file:
+                return JsonResponse({"error": "No file uploaded"}, status=400)
+
+            decoded_file = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+
+            faculty_created = 0
+
+            for row in reader:
+                full_name = row.get("full_name")
+                email = row.get("email")
+                designation = row.get("designation")
+                branch = row.get("branch")
+
+                # ✅ Only required fields (same as UI)
+                if not all([full_name, email, designation]):
+                    continue
+
+                # ✅ Skip duplicate
+                if Faculty.objects.filter(email=email.strip()).exists():
+                    continue
+
+                Faculty.objects.create(
+                    full_name=full_name.strip(),
+                    email=email.strip(),
+                    designation=designation.strip().upper(),
+                    branch=branch.strip().upper() if branch else "",
+                    phone="",  # optional blank
+                    password=make_password("123456")  # default password
+                )
+
+                faculty_created += 1
+
+            return JsonResponse({
+                "message": f"{faculty_created} faculty uploaded successfully"
+            })
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Only POST allowed"}, status=405)
 @csrf_exempt
 def get_students(request):
     if request.method == "POST":
@@ -470,34 +520,35 @@ def get_co_marks(request):
         try:
             data = json.loads(request.body)
 
+            branch = data.get("branch")
             subject_id = data.get("subject_id")
 
-            # 🔥 Optimize query
-            marks = COMark.objects.filter(
-                subject_id=subject_id
-            ).select_related("student")
+            co_marks = COMark.objects.select_related(
+                "student", "subject"
+            )
 
-            mark_list = []
+            if branch:
+                co_marks = co_marks.filter(branch__iexact=branch)
 
-            for mark in marks:
-                mark_list.append({
-                    "student_id": mark.student.id,
-                    "student_name": mark.student.full_name,   # ✅ THIS
-                    "registration_number": mark.student.registration_number, # ✅ THIS
-                    "co_number": mark.co_number,
-                    "marks": mark.marks,
-                    "semester": mark.semester,
-                    "branch": mark.branch,
-                    "batch": mark.batch,
-                    "session": mark.session,
+            if subject_id:
+                co_marks = co_marks.filter(subject_id=subject_id)
+
+            result = []
+            for m in co_marks:
+                result.append({
+                    "student_name": m.student.full_name,
+                    "reg_no": m.student.registration_number,
+                    "subject_code": m.subject.subject_code,
+                    "co_number": m.co_number,
+                    "marks": m.marks,
                 })
 
-            return JsonResponse({"marks": mark_list}, status=200)
+            return JsonResponse(result, safe=False)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"error": "Only POST allowed"}, status=405)
+    return JsonResponse({"error": "POST only"}, status=405)
 @csrf_exempt
 def get_branch_semester(request):
     faculty_id = request.GET.get("faculty_id")
@@ -670,6 +721,45 @@ def get_all_students(request):
         return JsonResponse(student_list, safe=False)
 
     return JsonResponse({"error": "Only GET allowed"}, status=405)
+def get_all_faculty(request):
+    if request.method == "GET":
+        faculty = Faculty.objects.all()
+
+        faculty_list = []
+
+        for f in faculty:
+            faculty_list.append({
+                "id": f.id,
+                "full_name": f.full_name,
+                "email": f.email,
+                "designation": f.designation,
+                "branch": f.branch,
+                "phone": f.phone
+            })
+
+        return JsonResponse(faculty_list, safe=False)
+
+    return JsonResponse({"error": "Only GET allowed"}, status=405)
+@csrf_exempt
+def get_all_subjects(request):
+    if request.method == "GET":
+        subjects = Subject.objects.all()
+
+        subject_list = []
+        for s in subjects:
+            subject_list.append({
+                "id": s.id,
+                "subject_code": s.subject_code,
+                "subject_name": s.subject_name,
+                "branch": s.branch,
+                "semester": s.semester,
+                "session": s.session,
+                "batch": s.batch,
+            })
+
+        return JsonResponse(subject_list, safe=False)
+
+    return JsonResponse({"error": "Only GET allowed"}, status=405)
 def export_students_excel(request):
     import openpyxl
     from django.http import HttpResponse
@@ -704,6 +794,120 @@ def export_students_excel(request):
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     response["Content-Disposition"] = "attachment; filename=students.xlsx"
+
+    wb.save(response)
+    return response
+
+def export_faculty_excel(request):
+    import openpyxl
+    from django.http import HttpResponse
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Faculty"
+
+    ws.append(["Name", "Email", "Designation", "Branch"])
+
+    branch = request.GET.get("branch")
+
+    faculty = Faculty.objects.all()
+
+    if branch:
+        faculty = faculty.filter(branch__iexact=branch)
+
+    for f in faculty:
+        ws.append([
+            f.full_name,
+            f.email,
+            f.designation,
+            f.branch
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=faculty.xlsx"
+
+    wb.save(response)
+    return response
+def export_subjects_excel(request):
+    import openpyxl
+    from django.http import HttpResponse
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Subjects"
+
+    ws.append(["Subject Code", "Subject Name", "Branch", "Semester", "Session", "Batch"])
+
+    branch = request.GET.get("branch")
+    semester = request.GET.get("semester")
+
+    subjects = Subject.objects.all()
+
+    if branch:
+        subjects = subjects.filter(branch__iexact=branch)
+
+    if semester:
+        subjects = subjects.filter(semester=semester)
+
+    for s in subjects:
+        ws.append([
+            s.subject_code,
+            s.subject_name,
+            s.branch,
+            s.semester,
+            s.session,
+            s.batch
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=subjects.xlsx"
+
+    wb.save(response)
+    return response
+def export_co_marks_excel(request):
+    import openpyxl
+    from django.http import HttpResponse
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "CO Analytics"
+
+    ws.append([
+        "Student Name",
+        "Reg No",
+        "Subject Code",
+        "CO Number",
+        "Marks"
+    ])
+
+    branch = request.GET.get("branch")
+    subject_id = request.GET.get("subject_id")
+
+    co_marks = COMark.objects.select_related("student", "subject")
+
+    if branch:
+        co_marks = co_marks.filter(branch__iexact=branch)
+
+    if subject_id:
+        co_marks = co_marks.filter(subject_id=subject_id)
+
+    for m in co_marks:
+        ws.append([
+            m.student.full_name,
+            m.student.registration_number,
+            m.subject.subject_code,
+            m.co_number,
+            m.marks
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=co_analytics.xlsx"
 
     wb.save(response)
     return response
