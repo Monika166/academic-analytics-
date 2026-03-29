@@ -45,9 +45,12 @@ const PrincipalDashboard: React.FC = () => {
   const [showSubjects, setShowSubjects] = useState(false);
   const [selectedSubjectBranch, setSelectedSubjectBranch] = useState("");
   const [selectedSubjectSemester, setSelectedSubjectSemester] = useState("");
-
+  const [showCODetails, setShowCODetails] = useState(false);
   const [coaData, setCoaData] = useState<any[]>([]);
   const [showCOA, setShowCOA] = useState(false);
+  // CO DETAILS MODAL STATES
+  const [coSubject, setCoSubject] = useState("");
+  const [coSubjects, setCoSubjects] = useState<any[]>([]);
   const fetchCOAnalytics = async () => {
     if (!selectedCOBranch || !selectedSubjectId) return;
 
@@ -73,8 +76,26 @@ const PrincipalDashboard: React.FC = () => {
   };
   //const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
+  // CO DETAILS FILTER
+  const [coBranch, setCoBranch] = useState("");
+  const [coSemester, setCoSemester] = useState("");
+
+  // COA FILTER (keep your existing one)
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
+  useEffect(() => {
+    const fetchCO = async () => {
+      if (!coBranch || !coSemester || !coSubject) return;
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/principal-co/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`,
+      );
+      const data = await res.json();
+      setCoData(data);
+    };
+
+    fetchCO();
+  }, [coBranch, coSemester, coSubject]);
   useEffect(() => {
     let filtered = coaData;
 
@@ -143,19 +164,20 @@ const PrincipalDashboard: React.FC = () => {
     fetchFaculty();
   }, []);
 
-  // useEffect(() => {
-  //   const fetchCO = async () => {
-  //     try {
-  //       const res = await fetch("http://127.0.0.1:8000/api/co-data/");
-  //       const data = await res.json();
-  //       setCoData(data);
-  //     } catch (error) {
-  //       console.error("Error fetching CO:", error);
-  //     }
-  //   };
+  useEffect(() => {
+    const fetchCO = async () => {
+      if (!coBranch || !coSemester) return;
 
-  //   fetchCO();
-  // }, []);
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/principal-co/?branch=${coBranch}&semester=${coSemester}`,
+      );
+      const data = await res.json();
+      setCoData(data);
+    };
+
+    fetchCO();
+  }, [coBranch, coSemester]);
+
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
@@ -621,6 +643,14 @@ const PrincipalDashboard: React.FC = () => {
             <h3 className="text-slate-500 text-sm">CO Analytics</h3>
             <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
           </div>
+          {/*CO Details*/}
+          <div
+            onClick={() => setShowCODetails(!showCODetails)}
+            className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
+          >
+            <h3 className="text-slate-500 text-sm">CO Details</h3>
+            <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
+          </div>
           {/* COA */}
           <div
             onClick={() => setShowCOA(true)}
@@ -732,7 +762,139 @@ const PrincipalDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* CO DETAILS */}
+      {showCODetails && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* BACKDROP */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
+          {/* MODAL */}
+          <div className="relative bg-white w-[90%] max-w-5xl rounded-2xl shadow-xl p-6 z-10">
+            {/* HEADER */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">CO Details</h3>
+
+              <button
+                onClick={() => setShowCODetails(false)}
+                className="text-red-500 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* FILTERS */}
+            <div className="flex gap-4 mb-4">
+              {/* BRANCH */}
+              <select
+                value={coBranch}
+                onChange={(e) => {
+                  setCoBranch(e.target.value);
+                  setCoSemester("");
+                  setCoSubject("");
+                }}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Branch</option>
+                {[...new Set(subjects.map((s) => s.branch))].map((b, i) => (
+                  <option key={i} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+
+              {/* SEMESTER */}
+              <select
+                value={coSemester}
+                onChange={(e) => {
+                  setCoSemester(e.target.value);
+                  setCoSubject("");
+                }}
+                className="border px-4 py-2 rounded"
+                disabled={!coBranch}
+              >
+                <option value="">Select Semester</option>
+                {[
+                  ...new Set(
+                    subjects
+                      .filter((s) => s.branch === coBranch)
+                      .map((s) => s.semester),
+                  ),
+                ].map((s, i) => (
+                  <option key={i} value={s}>
+                    Sem {s}
+                  </option>
+                ))}
+              </select>
+
+              {/* SUBJECT */}
+              <select
+                value={coSubject}
+                onChange={(e) => setCoSubject(e.target.value)}
+                className="border px-4 py-2 rounded"
+                disabled={!coSemester}
+              >
+                <option value="">Select Subject</option>
+                {subjects
+                  .filter(
+                    (s) =>
+                      s.branch?.toUpperCase().trim() ===
+                        coBranch.toUpperCase().trim() &&
+                      s.semester.toString() === coSemester.toString(),
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.subject_name} ({s.subject_code})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* DATA */}
+            <div className="max-h-[400px] overflow-y-auto">
+              {coData.length === 0 ? (
+                <p className="text-gray-500">No CO data found</p>
+              ) : (
+                coData.map((sub: any, i: number) => (
+                  <div key={i} className="mb-4 border-b pb-3">
+                    <h3 className="font-semibold text-lg">
+                      {sub.subject_name}
+                    </h3>
+
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {sub.co.map((c: any) => (
+                        <span
+                          key={c.id}
+                          className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
+                        >
+                          {c.co_number}: {c.description}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {/* DOWNLOAD BUTTON */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  if (!coBranch || !coSemester || !coSubject) {
+                    alert("Please select branch, semester and subject");
+                    return;
+                  }
+
+                  const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
+
+                  window.open(url, "_blank");
+                }}
+                className="bg-blue-700 text-white px-4 py-2 rounded shadow hover:bg-blue-800"
+              >
+                Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showCO && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>

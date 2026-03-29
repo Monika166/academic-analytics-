@@ -6,6 +6,7 @@ interface Subject {
   id: number;
   subject_code: string;
   subject_name: string;
+  has_co: boolean; // 🔥 ADD THIS
 }
 
 export default function SubjectDetailsPage() {
@@ -36,6 +37,7 @@ export default function SubjectDetailsPage() {
         semester: coBasicData.semester,
         batch: coBasicData.batch,
         session: coBasicData.session,
+        faculty_id: localStorage.getItem("faculty_id"), // 🔥 ADD THIS
       }),
     })
       .then((res) => res.json())
@@ -71,17 +73,31 @@ export default function SubjectDetailsPage() {
       (s) => s.subject_code === formData.subjectCode,
     );
 
-    navigate("/batch", {
+    if (!selectedSubject) {
+      alert("Please select a subject");
+      return;
+    }
+
+    // 🔥 CHECK FROM BACKEND FLAG
+    if (selectedSubject.has_co) {
+      alert("CO details already added");
+      return;
+    }
+
+    navigate("/co-details", {
       state: {
-        numberOfCO: Number(formData.numberOfCO),
-        branch: coBasicData.branch,
-        batch: coBasicData.batch,
-        semester: coBasicData.semester,
-        session: coBasicData.session,
-        subject_id: selectedSubject?.id, // VERY IMPORTANT
+        subject_id: selectedSubject.id,
+        subjectCode: selectedSubject.subject_code,
+        subjectName: selectedSubject.subject_name,
+        numCO: Number(formData.numberOfCO),
       },
     });
   };
+  const selectedSubject = subjects.find(
+    (s) => s.subject_code === formData.subjectCode,
+  );
+
+  const isCOExists = selectedSubject?.has_co || false;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -152,9 +168,14 @@ export default function SubjectDetailsPage() {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg font-semibold hover:bg-blue-700 transition"
+              disabled={isCOExists}
+              className={`w-full py-3 rounded-xl text-lg font-semibold ${
+                isCOExists
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
             >
-              Complete Setup
+              {isCOExists ? "CO Already Added" : "Complete Setup"}
             </button>
           </form>
         </div>

@@ -27,7 +27,9 @@ const HodDashboard: React.FC = () => {
   const [selectedSemester, setSelectedSemester] = useState<string>("1");
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
+  const [coData, setCoData] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<any>(null);
   // State for HOD details
   const [hodName, setHodName] = useState("user");
   const [branch, setBranch] = useState("");
@@ -73,12 +75,144 @@ const HodDashboard: React.FC = () => {
       : subjects.filter((s) => s.semester === Number(selectedSemester));
 
   const semesters = ["all", "1", "2", "3", "4", "5", "6", "7", "8"];
+  const handleViewCO = (subject: any) => {
+    setSelectedSubject(subject);
+    setCoData(subject.co_data || []); // 👈 from existing API
+    setShowModal(true);
+  };
+  const handleDownload = () => {
+    if (!selectedSubject) return;
 
+    let csv = "";
+
+    const coNumbers = coData.map((co: any) => co.co_number);
+
+    let avgMarks: any = {};
+    let studentsAboveAvg: any = {};
+    let attainment: any = {};
+
+    // ===== CALCULATIONS =====
+    coNumbers.forEach((coNum: number) => {
+      const values = (selectedSubject.students || []).map(
+        (stu: any) => stu[`co${coNum}`] || 0,
+      );
+
+      const total = values.reduce((a: number, b: number) => a + b, 0);
+      const avg = values.length ? total / values.length : 0;
+
+      avgMarks[coNum] = avg.toFixed(2);
+
+      const count = values.filter((v: number) => v >= avg).length;
+      studentsAboveAvg[coNum] = count;
+
+      const attain = values.length ? count / values.length : 0;
+      attainment[coNum] = attain.toFixed(2);
+    });
+
+    const avgAttainment =
+      (Object.values(attainment) as number[]).reduce(
+        (a, b) => a + Number(b),
+        0,
+      ) / (coNumbers.length || 1);
+
+    // ===== HEADER =====
+    csv += `Subject:,${selectedSubject.subject_name}\n`;
+    csv += `Branch:,${selectedSubject.branch}\n`;
+    csv += `Semester:,${selectedSubject.semester}\n\n`;
+
+    // ===== CO DETAILS =====
+    csv += "Course Outcomes\n";
+    coData.forEach((co: any) => {
+      csv += `CO${co.co_number},${co.co_description}\n`;
+    });
+
+    csv += "\n";
+
+    // ===== TABLE HEADER =====
+    csv += "Student Name,Reg No,Subject,";
+    coNumbers.forEach((co: number) => (csv += `CO${co},`));
+    csv += "Total\n";
+
+    // ===== STUDENT DATA =====
+    (selectedSubject.students || []).forEach((stu: any) => {
+      let total = 0;
+
+      let row = `${stu.name},${stu.reg_no},${selectedSubject.subject_name},`;
+
+      coNumbers.forEach((co: number) => {
+        const val = stu[`co${co}`] || 0;
+        total += val;
+        row += `${val},`;
+      });
+
+      row += `${total}\n`;
+      csv += row;
+    });
+
+    csv += "\n";
+
+    // ===== CALCULATION TABLE =====
+    csv += "Metric,";
+    coNumbers.forEach((co: number) => (csv += `CO${co},`));
+    csv += "Overall\n";
+
+    // Average Marks
+    csv += "Average Marks,";
+    coNumbers.forEach((co: number) => (csv += `${avgMarks[co]},`));
+    csv += "-\n";
+
+    // Students ≥ Avg
+    csv += "Students >= Avg,";
+    coNumbers.forEach((co: number) => (csv += `${studentsAboveAvg[co]},`));
+    csv += "-\n";
+
+    // CO Attainment
+    csv += "CO Attainment,";
+    coNumbers.forEach((co: number) => (csv += `${attainment[co]},`));
+    csv += "-\n";
+
+    // Average CO Attainment
+    csv += "Average CO Attainment,";
+    coNumbers.forEach(() => (csv += "-,"));
+    csv += `${avgAttainment.toFixed(2)}\n`;
+
+    // ===== DOWNLOAD =====
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "co_report.csv";
+    a.click();
+  };
   const handleLogoutConfirm = () => {
     localStorage.clear();
     setIsLogoutModalOpen(false);
     navigate("/hod-login");
   };
+  // 🔥 ADD THIS BLOCK JUST BEFORE return (IMPORTANT)
+  const coNumbers = coData.map((co: any) => co.co_number);
+
+  let avgMarks: any = {};
+  let studentsAboveAvg: any = {};
+  let attainment: any = {};
+
+  coNumbers.forEach((coNum: number) => {
+    const values = (selectedSubject?.students || []).map(
+      (stu: any) => stu[`co${coNum}`] || 0,
+    );
+
+    const total = values.reduce((a: number, b: number) => a + b, 0);
+    const avg = values.length ? total / values.length : 0;
+
+    avgMarks[coNum] = avg.toFixed(2);
+
+    const count = values.filter((v: number) => v >= avg).length;
+    studentsAboveAvg[coNum] = count;
+
+    const attain = values.length ? count / values.length : 0;
+    attainment[coNum] = attain.toFixed(2);
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -260,7 +394,14 @@ const HodDashboard: React.FC = () => {
                     <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                       SEMESTER {subject.semester}
                     </span>
-
+                    {subject.co_data && subject.co_data.length > 0 && (
+                      <button
+                        onClick={() => handleViewCO(subject)}
+                        className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
+                      >
+                        View CO
+                      </button>
+                    )}
                     <span
                       className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
                         subject.is_active
@@ -309,6 +450,180 @@ const HodDashboard: React.FC = () => {
           </div>
         </div>
       </main>
+      {showModal && selectedSubject && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[900px] max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-xl">
+            <h2 className="text-xl font-bold text-center mb-4">CO Report</h2>
+
+            {/* SUBJECT DETAILS */}
+            <div className="mb-6 text-sm">
+              <p>
+                <strong>Subject:</strong> {selectedSubject.subject_name}
+              </p>
+              <p>
+                <strong>Branch:</strong> {selectedSubject.branch}
+              </p>
+              <p>
+                <strong>Semester:</strong> {selectedSubject.semester}
+              </p>
+            </div>
+
+            {/* CO DETAILS */}
+            <div className="mb-6">
+              <h3 className="font-semibold mb-2">Course Outcomes</h3>
+              {coData.map((co: any) => (
+                <p key={co.co_number}>
+                  <strong>CO{co.co_number}:</strong> {co.co_description}
+                </p>
+              ))}
+            </div>
+
+            {/* TABLE */}
+            <div className="overflow-x-auto">
+              <table className="w-full border border-black text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border p-2">Student Name</th>
+                    <th className="border p-2">Reg No</th>
+                    <th className="border p-2">Subject</th>
+
+                    {coData.map((co: any) => (
+                      <th key={co.co_number} className="border p-2">
+                        CO{co.co_number}
+                      </th>
+                    ))}
+
+                    <th className="border p-2">Total</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {(selectedSubject.students || []).map(
+                    (stu: any, idx: number) => {
+                      let total = 0;
+
+                      return (
+                        <tr key={idx}>
+                          <td className="border p-2">{stu.name}</td>
+                          <td className="border p-2">{stu.reg_no}</td>
+                          <td className="border p-2">
+                            {selectedSubject.subject_name}
+                          </td>
+
+                          {coData.map((co: any) => {
+                            const val = stu[`co${co.co_number}`] || 0;
+                            total += val;
+
+                            return (
+                              <td
+                                key={co.co_number}
+                                className="border p-2 text-center"
+                              >
+                                {val}
+                              </td>
+                            );
+                          })}
+
+                          <td className="border p-2 text-center">{total}</td>
+                        </tr>
+                      );
+                    },
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 🔥 CALCULATIONS */}
+            <div className="mt-6">
+              <table className="w-full border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border p-2 text-left">Metric</th>
+
+                    {coData.map((co: any) => (
+                      <th key={co.co_number} className="border p-2 text-center">
+                        CO{co.co_number}
+                      </th>
+                    ))}
+
+                    <th className="border p-2 text-center">Overall</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {/* Average Marks */}
+                  <tr>
+                    <td className="border p-2 font-semibold">Average Marks</td>
+                    {coData.map((co: any) => (
+                      <td key={co.co_number} className="border p-2 text-center">
+                        {avgMarks[co.co_number]}
+                      </td>
+                    ))}
+                    <td className="border p-2 text-center">-</td>
+                  </tr>
+
+                  {/* Students ≥ Avg */}
+                  <tr>
+                    <td className="border p-2 font-semibold">Students ≥ Avg</td>
+                    {coData.map((co: any) => (
+                      <td key={co.co_number} className="border p-2 text-center">
+                        {studentsAboveAvg[co.co_number]}
+                      </td>
+                    ))}
+                    <td className="border p-2 text-center">-</td>
+                  </tr>
+
+                  {/* CO Attainment */}
+                  <tr>
+                    <td className="border p-2 font-semibold">CO Attainment</td>
+                    {coData.map((co: any) => (
+                      <td key={co.co_number} className="border p-2 text-center">
+                        {attainment[co.co_number]}
+                      </td>
+                    ))}
+                    <td className="border p-2 text-center">-</td>
+                  </tr>
+
+                  {/* Average CO Attainment */}
+                  <tr className="bg-gray-100 font-semibold">
+                    <td className="border p-2">Average CO Attainment</td>
+
+                    {coData.map(() => (
+                      <td className="border p-2 text-center">-</td>
+                    ))}
+
+                    <td className="border p-2 text-center">
+                      {(
+                        (Object.values(attainment) as number[]).reduce(
+                          (a, b) => a + Number(b),
+                          0,
+                        ) / (coNumbers.length || 1)
+                      ).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* BUTTONS */}
+            <div className="flex justify-between mt-6">
+              <button
+                onClick={handleDownload}
+                className="bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Download
+              </button>
+
+              <button
+                onClick={() => setShowModal(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ================= LOGOUT MODAL ================= */}
       {isLogoutModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">

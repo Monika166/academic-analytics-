@@ -86,3 +86,11 @@ class COMark(models.Model):
     branch = models.CharField(max_length=50)
 
     created_at = models.DateTimeField(auto_now_add=True)
+class COConfiguration(models.Model):
+    subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
+    faculty = models.ForeignKey("Faculty", on_delete=models.CASCADE, null=True) 
+    co_number = models.IntegerField()
+    statement = models.TextField()
+
+    def __str__(self):
+        return f"{self.subject.subject_code} - CO{self.co_number}"
