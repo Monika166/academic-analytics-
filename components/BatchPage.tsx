@@ -11,14 +11,19 @@ interface Student {
 export default function BatchPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { numberOfCO, branch, batch, semester, session, subject_id } =
-    location.state || {};
+  const { branch, batch, semester, session, subject_id } = location.state || {};
 
   const [students, setStudents] = useState<Student[]>([]);
   const [marks, setMarks] = useState<any>({});
+  const [coList, setCoList] = useState<any[]>([]);
 
   // ✅ Fetch Students (POST)
   useEffect(() => {
+    if (!branch || !batch || !semester || !session) {
+      console.log("Missing data:", { branch, batch, semester, session });
+      return;
+    }
+
     fetch("http://127.0.0.1:8000/api/get-students/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,9 +35,34 @@ export default function BatchPage() {
       }),
     })
       .then((res) => res.json())
-      .then((data) => setStudents(data.students));
-  }, []);
+      .then((data) => {
+        console.log("Students:", data);
+        setStudents(data.students);
+      });
+  }, [branch, batch, semester, session]);
+  useEffect(() => {
+    if (!subject_id) return;
 
+    const fetchCO = async () => {
+      try {
+        const facultyId = localStorage.getItem("faculty_id");
+
+        const res = await fetch(
+          `http://127.0.0.1:8000/api/get-co-by-subject/?subject_id=${subject_id}&faculty_id=${facultyId}`,
+        );
+
+        const data = await res.json();
+
+        console.log("CO LIST:", data);
+
+        setCoList(data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchCO();
+  }, [subject_id]);
   // Handle input change
   const handleChange = (studentId: number, coNumber: number, value: string) => {
     setMarks((prev: any) => ({
@@ -45,54 +75,61 @@ export default function BatchPage() {
   };
 
   const handleSubmit = async () => {
+    console.log("SUBMIT CLICKED");
+
     if (Object.keys(marks).length === 0) {
       alert("Please enter marks before submitting");
       return;
     }
 
-    // ✅ STEP 1: CREATE CO
-    const coResponse = await fetch("http://127.0.0.1:8000/api/add-co/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        faculty_id: localStorage.getItem("faculty_id"),
-        subject_id,
-        branch,
-        batch,
-        semester,
-        session,
-      }),
+    // 🔥 CONVERT MARKS OBJECT → ARRAY FORMAT
+    const formattedMarks: any[] = [];
+
+    Object.keys(marks).forEach((studentId) => {
+      const coMarks = marks[studentId];
+
+      Object.keys(coMarks).forEach((coKey) => {
+        const coNumber = Number(coKey.replace("CO", ""));
+
+        formattedMarks.push({
+          student_id: Number(studentId),
+          co_number: coNumber,
+          marks: Number(coMarks[coKey]),
+        });
+      });
     });
 
-    const coData = await coResponse.json();
+    console.log("FORMATTED MARKS:", formattedMarks);
 
-    // ❌ STOP IF ERROR
-    if (!coResponse.ok) {
-      alert(coData.error || "Error creating Course Outcome");
-      return; // 🔥 VERY IMPORTANT
-    }
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/save-co-marks/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          marks: formattedMarks, // ✅ FIXED FORMAT
+          branch,
+          batch,
+          semester,
+          session,
+          subject_id,
+        }),
+      });
 
-    // ✅ STEP 2: SAVE MARKS
-    const response = await fetch("http://127.0.0.1:8000/api/save-co-marks/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        marks,
-        branch,
-        batch,
-        semester,
-        session,
-        subject_id,
-      }),
-    });
+      const data = await response.json();
 
-    const data = await response.json();
+      console.log("RESPONSE DATA:", data);
 
-    if (response.ok) {
-      alert("Marks Saved Successfully!");
-      navigate("/dashboard");
-    } else {
-      alert(data.error || "Error saving marks");
+      if (response.ok) {
+        alert("Marks Saved Successfully!");
+        navigate("/dashboard");
+      } else {
+        alert(data.error || "Error saving marks");
+      }
+    } catch (err) {
+      console.error("ERROR:", err);
+      alert("Server error");
     }
   };
 
@@ -107,9 +144,9 @@ export default function BatchPage() {
               <th className="border px-4 py-2">Student Name</th>
               <th className="border px-4 py-2">Registration Number</th>
 
-              {Array.from({ length: numberOfCO }, (_, i) => (
-                <th key={i} className="border px-4 py-2">
-                  CO{i + 1}
+              {coList.map((co) => (
+                <th key={co.co_number} className="border px-4 py-2">
+                  CO{co.co_number}
                 </th>
               ))}
             </tr>
@@ -123,13 +160,13 @@ export default function BatchPage() {
                   {student.registration_number}
                 </td>
 
-                {Array.from({ length: numberOfCO }, (_, i) => (
-                  <td key={i} className="border px-4 py-2">
+                {coList.map((co) => (
+                  <td key={co.co_number} className="border px-4 py-2">
                     <input
                       type="number"
                       className="border p-1 w-20"
                       onChange={(e) =>
-                        handleChange(student.id, i + 1, e.target.value)
+                        handleChange(student.id, co.co_number, e.target.value)
                       }
                     />
                   </td>

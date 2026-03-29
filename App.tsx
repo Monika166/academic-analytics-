@@ -15,6 +15,9 @@ import BatchPage from "./components/BatchPage";
 import PrincipalLogin from "./components/PrincipalLogin";
 import PrincipalDashboard from "./components/PrincipalDashboard";
 import HodSubjectDetails from "./components/HodSubjectDetails";
+import CoDetails from "./components/CoDetails";
+import SelectSubjectForMarks from "./components/SelectSubjectForMarks";
+import CoManagement from "./components/CoManagement";
 const App = () => {
   return (
     <Router>
@@ -36,6 +39,13 @@ const App = () => {
         <Route path="/principal-login" element={<PrincipalLogin />} />
         <Route path="/test" element={<h1>TEST WORKING</h1>} />
         <Route path="/principal-dashboard" element={<PrincipalDashboard />} />
+        <Route path="/co-details" element={<CoDetails />} />
+        <Route path="/co-management" element={<CoManagement />} />
+
+        <Route
+          path="/select-subject-marks"
+          element={<SelectSubjectForMarks />}
+        />
       </Routes>
     </Router>
   );

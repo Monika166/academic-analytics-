@@ -169,10 +169,16 @@ const Dashboard: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-4">
             <button
-              onClick={() => navigate("/add-co")}
+              onClick={() => navigate("/co-management")}
               className="bg-blue-600 text-white px-5 py-2 rounded-lg"
             >
-              + Add CO
+              Manage CO Details
+            </button>
+            <button
+              onClick={() => navigate("/select-subject-marks")}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg"
+            >
+              + Add CO Marks
             </button>
             <button className="bg-white border border-slate-200 hover:border-blue-700 hover:text-blue-700 text-slate-700 font-bold px-6 py-3 rounded-xl shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
               <Activity size={20} />

@@ -31,11 +31,11 @@ export default function AddCOPage() {
       {/* Header */}
       <div className="flex items-center gap-2 p-6">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/co-management")}
           className="flex items-center text-gray-600 hover:text-black"
         >
           <ArrowLeft size={18} />
-          <span className="ml-2">Back to Dashboard</span>
+          <span className="ml-2">Back to CO Management</span>
         </button>
       </div>
 

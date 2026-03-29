@@ -7,11 +7,16 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import csv
 import io
-from .models import CourseOutcome
 import openpyxl
 from django.http import HttpResponse
 import json
 import pandas as pd
+from .models import COConfiguration
+from openpyxl.styles import Font, Alignment, Border, Side
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from core.models import COMark
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -173,15 +178,47 @@ def get_hod_subjects(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            faculty_id = data.get("faculty_id")
+            faculty_id = data.get("faculty_id")  # ✅ FIXED (moved outside)
 
             faculty = Faculty.objects.get(id=faculty_id)
-
             subjects = Subject.objects.filter(created_by=faculty)
 
             subject_list = []
 
             for subject in subjects:
+
+                # ✅ GET CO DATA
+                configs = COConfiguration.objects.filter(
+                    subject=subject,
+                )
+
+                co_list = [
+                    {
+                        "co_number": co.co_number,
+                        "co_description": co.statement
+                    }
+                    for co in configs
+                ]
+
+                # ✅ GET MARKS
+                marks = COMark.objects.filter(
+                    subject=subject
+                ).select_related("student")
+
+                student_map = {}
+
+                for entry in marks:
+                    student_id = entry.student.id
+
+                    if student_id not in student_map:
+                        student_map[student_id] = {
+                            "name": entry.student.full_name,
+                            "reg_no": entry.student.registration_number
+                        }
+
+                    if entry.co_number:
+                        student_map[student_id][f"co{entry.co_number}"] = entry.marks
+
                 subject_list.append({
                     "id": subject.id,
                     "subject_code": subject.subject_code,
@@ -191,11 +228,17 @@ def get_hod_subjects(request):
                     "session": subject.session,
                     "batch": subject.batch,
                     "is_active": subject.is_active,
+
+                    # 🔥 IMPORTANT
+                    "co_data": co_list,
+                    "has_co": len(co_list) > 0,
+                    "students": list(student_map.values())
                 })
 
             return JsonResponse({"subjects": subject_list}, status=200)
 
         except Exception as e:
+            print("ERROR:", str(e))
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
@@ -292,7 +335,7 @@ def upload_students_csv(request):
 
     return JsonResponse({"error": "Only POST allowed"}, status=405)
 
-@csrf_exempt
+
 @csrf_exempt
 def upload_faculty_csv(request):
     if request.method == "POST":
@@ -449,32 +492,33 @@ def get_subjects_for_co(request):
             data = json.loads(request.body)
 
             branch = data.get("branch")
-            semester = data.get("semester")
+            semester = int(data.get("semester"))
             batch = data.get("batch")
             session = data.get("session")
-
-            # Safety check
-            if not all([branch, semester, batch, session]):
-                return JsonResponse({"subjects": []}, status=200)
-
-            # 🔥 IMPORTANT FIX: convert semester to int
-            semester = int(semester)
+            faculty_id = data.get("faculty_id")   # 🔥 ADD THIS
 
             subjects = Subject.objects.filter(
-    branch__iexact=branch,
-    semester=semester,
-    batch__iexact=batch,
-    session__iexact=session,
-    is_active=True
-)
+                branch__iexact=branch,
+                semester=semester,
+                batch__iexact=batch,
+                session__iexact=session,
+                is_active=True
+            )
 
             subject_list = []
 
             for subject in subjects:
+                # 🔥 CHECK CO PER FACULTY
+                has_co = COConfiguration.objects.filter(
+                    subject=subject,
+                    faculty_id=faculty_id
+                ).exists()
+
                 subject_list.append({
                     "id": subject.id,
                     "subject_code": subject.subject_code,
                     "subject_name": subject.subject_name,
+                    "has_co": has_co   # 🔥 ADD THIS
                 })
 
             return JsonResponse({"subjects": subject_list}, status=200)
@@ -483,38 +527,48 @@ def get_subjects_for_co(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
-
-@api_view(['POST'])
+@csrf_exempt
+@csrf_exempt
 def save_co_marks(request):
-    try:
-        marks_data = request.data.get("marks")
-        subject_id = request.data.get("subject_id")
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
 
-        subject = Subject.objects.get(id=subject_id)
+            marks = data.get("marks", [])
+            subject_id = data.get("subject_id")
+            branch = data.get("branch")
+            batch = data.get("batch")
+            semester = data.get("semester")
+            session = data.get("session")
 
-        for student_id, co_values in marks_data.items():
-            student = Student.objects.get(id=int(student_id))
+            if not marks:
+                return JsonResponse({"error": "No marks provided"}, status=400)
 
-            for co_key, mark in co_values.items():
-                # Extract number from "CO1", "CO2"
-                co_number = int(co_key.replace("CO", ""))
+            for item in marks:
+                student_id = item.get("student_id")
+                co_number = item.get("co_number")
+                mark_value = item.get("marks")
 
-                COMark.objects.create(
-                    student=student,
-                    subject=subject,
-                    co_number=co_number,
-                    marks=float(mark),
-                    branch=request.data.get("branch"),
-                    batch=request.data.get("batch"),
-                    semester=int(request.data.get("semester")),
-                    session=request.data.get("session"),
-                )
+                COMark.objects.update_or_create(
+                 student_id=student_id,
+                 subject_id=subject_id,
+                 co_number=co_number,
+                 defaults={
+                      "marks": mark_value,
+                      "branch": branch,
+                      "batch": batch,
+                      "semester": semester,
+                      "session": session,
+    }
+)
 
-        return Response({"message": "Saved successfully"})
+            return JsonResponse({"message": "Marks saved successfully"}, status=200)
 
-    except Exception as e:
-        print("SAVE ERROR:", e)  # 👈 helps debugging
-        return Response({"error": str(e)}, status=500)
+        except Exception as e:
+            print("SAVE ERROR:", str(e))
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
 @csrf_exempt
 def get_co_marks(request):
     if request.method == "POST":
@@ -555,39 +609,96 @@ def get_branch_semester(request):
     faculty_id = request.GET.get("faculty_id")
 
     if not faculty_id:
-        return JsonResponse({"error": "Faculty ID required"}, status=400)
+        return JsonResponse([], safe=False)
 
-    # ✅ Get COs (already linked to subject)
-    course_outcomes = CourseOutcome.objects.filter(faculty_id=faculty_id)
+    configs = COConfiguration.objects.select_related("subject").filter(
+        faculty_id=faculty_id
+    )
 
-    data = []
+    data_map = {}
 
-    for co in course_outcomes:
-        data.append({
-            "batch": co.batch,
-            "session": co.session,
-            "branch": co.branch,
-            "semester": co.semester,
-            "subject": co.subject.subject_name,   # ✅ correct mapping
-            "subject_id": co.subject.id,          # ✅ important
-        })
+    for co in configs:
+        subject = co.subject
 
-    return JsonResponse(data, safe=False)
+        key = subject.id  # 🔥 UNIQUE SUBJECT
+
+        if key not in data_map:
+            data_map[key] = {
+                "batch": subject.batch,
+                "session": subject.session,
+                "branch": subject.branch,
+                "semester": subject.semester,
+                "subject": subject.subject_name,
+                "subject_id": subject.id,
+            }
+
+    return JsonResponse(list(data_map.values()), safe=False)
+@csrf_exempt
 def download_excel(request, branch, semester):
+    
     subject_name = request.GET.get("subject")
+
     marks = COMark.objects.filter(
         branch__iexact=branch,
         semester=semester,
-        subject__subject_name=subject_name 
+        subject__subject_name=subject_name
     ).select_related("student", "subject")
+
+    # 🔷 FETCH CO DETAILS
+    co_details = COConfiguration.objects.filter(
+        subject__subject_name=subject_name,
+        subject__branch__iexact=branch,
+        subject__semester=semester
+    ).order_by("co_number")
 
     wb = openpyxl.Workbook()
     ws = wb.active
+    bold_font = Font(bold=True)
+    center_align = Alignment(horizontal="center", vertical="center")
+
+    thin_border = Border(
+      left=Side(style="thin"),
+      right=Side(style="thin"),
+      top=Side(style="thin"),
+      bottom=Side(style="thin")
+)
+    # =========================
+    # 🔥 ADD HEADER SECTION
+    # =========================
+
+    ws.append(["Subject", subject_name])
+    ws.append(["Branch", branch])
+    ws.append(["Semester", semester])
+
+    for row in ws.iter_rows(min_row=1, max_row=3, min_col=1, max_col=2):
+      for cell in row:
+        cell.font = bold_font
+
+    ws.append([])
+
+    ws.append(["Course Outcomes"])
+    ws["A5"].font = Font(bold=True, size=14)
+
+    for co in co_details:
+        ws.append([f"CO{co.co_number}", co.statement])
+        start_row = 6
+    end_row = 6 + len(co_details) - 1
+
+    for row in ws.iter_rows(min_row=start_row, max_row=end_row, min_col=1, max_col=2):
+      for cell in row:
+         cell.border = thin_border
+         cell.alignment = Alignment(wrap_text=True)
+
+    ws.append([])
+    ws.append([])
+
+    # =========================
+    # EXISTING LOGIC (UNCHANGED)
+    # =========================
 
     students = defaultdict(dict)
     co_set = set()
 
-    # Collect marks per student
     for m in marks:
         reg = m.student.registration_number
         co = f"CO{m.co_number}"
@@ -607,7 +718,6 @@ def download_excel(request, branch, semester):
     co_totals = {co: 0 for co in co_list}
     student_count = 0
 
-    # Write student rows
     for student in students.values():
 
         row = [
@@ -629,8 +739,12 @@ def download_excel(request, branch, semester):
         ws.append(row)
 
         student_count += 1
+        
 
-    # Calculate CO averages
+    # =========================
+    # ANALYTICS (UNCHANGED)
+    # =========================
+
     co_avg = {}
     for co in co_list:
         if student_count > 0:
@@ -638,7 +752,6 @@ def download_excel(request, branch, semester):
         else:
             co_avg[co] = 0
 
-    # Count students above average
     above_avg = {co: 0 for co in co_list}
 
     for student in students.values():
@@ -646,7 +759,6 @@ def download_excel(request, branch, semester):
             if student.get(co, 0) >= co_avg[co]:
                 above_avg[co] += 1
 
-    # Calculate CO attainment levels
     co_attainment = {}
 
     for co in co_list:
@@ -663,39 +775,56 @@ def download_excel(request, branch, semester):
 
     ws.append([])
 
-    # Average marks row
     avg_row = ["", "", "Average Marks"]
     for co in co_list:
         avg_row.append(co_avg[co])
     avg_row.append("")
     ws.append(avg_row)
 
-    # Students >= average
     count_row = ["", "", "Students ≥ Avg"]
     for co in co_list:
         count_row.append(above_avg[co])
     count_row.append("")
     ws.append(count_row)
 
-    # CO attainment row
     attain_row = ["", "", "CO Attainment"]
     for co in co_list:
         attain_row.append(co_attainment[co])
     attain_row.append("")
     ws.append(attain_row)
 
-    # Average CO attainment
     avg_attainment = round(sum(co_attainment.values()) / len(co_attainment), 2) if co_attainment else 0
 
     ws.append([])
     ws.append(["", "", "Average CO Attainment", avg_attainment])
+    for row in ws.iter_rows(min_row=ws.max_row-3, max_row=ws.max_row, min_col=1, max_col=len(headers)):
+      for cell in row:
+          cell.font = bold_font
+          cell.alignment = center_align
+
+    # =========================
+    # RESPONSE
+    # =========================
 
     response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f"attachment; filename={subject_name}_{branch}_sem{semester}.xlsx"
+    response["Content-Disposition"] = f"attachment; filename={subject_name}_{branch}_Sem{semester}.xlsx"
 
     wb.save(response)
+    for col in ws.columns:
+      max_length = 0
+      col_letter = col[0].column_letter
+
+    for cell in col:
+        try:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        except:
+            pass
+
+    ws.column_dimensions[col_letter].width = max_length + 2
 
     return response
+@csrf_exempt
 def principal_dashboard_stats(request):
     data = {
         "students": Student.objects.count(),
@@ -761,6 +890,38 @@ def get_all_subjects(request):
         return JsonResponse(subject_list, safe=False)
 
     return JsonResponse({"error": "Only GET allowed"}, status=405)
+def principal_co(request):
+    branch = request.GET.get("branch")
+    semester = request.GET.get("semester")
+    subject_id = request.GET.get("subject_id")
+
+    subjects = Subject.objects.filter(
+        branch__iexact=branch,
+        semester=semester
+    )
+
+    if subject_id:
+        subjects = subjects.filter(id=subject_id)
+
+    data = []
+
+    for sub in subjects:
+        cos = COConfiguration.objects.filter(subject=sub)  # ✅ FIXED MODEL
+
+        if cos.exists():
+            data.append({
+                "subject_name": sub.subject_name,
+                "co": [
+                    {
+                        "id": co.id,
+                        "co_number": f"CO{co.co_number}",   # ✅ formatted
+                        "description": co.statement         # ✅ FIXED FIELD
+                    }
+                    for co in cos
+                ]
+            })
+
+    return JsonResponse(data, safe=False)
 def export_students_excel(request):
     import openpyxl
     from django.http import HttpResponse
@@ -830,6 +991,57 @@ def export_faculty_excel(request):
     response["Content-Disposition"] = "attachment; filename=faculty.xlsx"
 
     wb.save(response)
+    return response
+def download_co_pdf(request):
+    branch = request.GET.get("branch")
+    semester = request.GET.get("semester")
+    subject_id = request.GET.get("subject_id")
+
+    subjects = Subject.objects.filter(
+        branch__iexact=branch,
+        semester=semester
+    )
+
+    if subject_id:
+        subjects = subjects.filter(id=subject_id)
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = "attachment; filename=CO_Details.pdf"
+
+    doc = SimpleDocTemplate(response)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # TITLE
+    elements.append(Paragraph("Course Outcome (CO) Details", styles["Title"]))
+    elements.append(Spacer(1, 10))
+
+    for sub in subjects:
+        elements.append(Paragraph(f"<b>Subject:</b> {sub.subject_name}", styles["Heading2"]))
+        elements.append(Paragraph(f"<b>Branch:</b> {sub.branch}", styles["Normal"]))
+        elements.append(Paragraph(f"<b>Semester:</b> {sub.semester}", styles["Normal"]))
+        elements.append(Spacer(1, 10))
+
+        cos = COConfiguration.objects.filter(subject=sub)
+
+        data = [["CO Number", "Description"]]
+
+        for co in cos:
+            data.append([f"CO{co.co_number}", co.statement])
+
+        table = Table(data, colWidths=[100, 400])
+
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+
+    doc.build(elements)
     return response
 def export_subjects_excel(request):
     import openpyxl
@@ -1053,3 +1265,267 @@ def export_coa(request):
 
     except Exception as e:
         return HttpResponse(str(e), status=500)
+@csrf_exempt
+def save_co_details(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            subject_id = data.get("subject_id")
+            co_statements = data.get("co_statements")
+            faculty_id = data.get("faculty_id")
+
+            subject = Subject.objects.get(id=subject_id)
+            faculty = Faculty.objects.get(id=faculty_id)
+
+            # ✅ Prevent duplicate per faculty
+            if COConfiguration.objects.filter(
+                subject=subject,
+                faculty=faculty
+            ).exists():
+                return JsonResponse({
+                    "success": False,
+                    "message": "CO details already added"
+                }, status=400)
+
+            # ✅ Save with faculty
+            for i, statement in enumerate(co_statements, start=1):
+                COConfiguration.objects.create(
+                    subject=subject,
+                    faculty=faculty,   # 🔥 IMPORTANT
+                    co_number=i,
+                    statement=statement
+                )
+
+            return JsonResponse({
+                "success": True,
+                "message": "CO details saved successfully"
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+@csrf_exempt
+def get_subjects_with_co(request):
+    if request.method == "GET":
+        try:
+            faculty_id = request.GET.get("faculty_id")
+
+            subjects = Subject.objects.filter(
+                coconfiguration__faculty_id=faculty_id
+            ).distinct()
+
+            data = []
+            for sub in subjects:
+                has_marks = COMark.objects.filter(subject=sub).exists()
+
+                data.append({
+                    "id": sub.id,
+                    "subject_code": sub.subject_code,
+                    "subject_name": sub.subject_name,
+                    "branch": sub.branch,
+                    "semester": sub.semester,
+                    "batch": sub.batch,
+                    "session": sub.session,
+                    "has_marks": has_marks
+                })
+
+            return JsonResponse({"subjects": data}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+@csrf_exempt
+def get_co_details(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            subject_id = data.get("subject_id")
+
+            faculty_id = data.get("faculty_id")
+
+            cos = COConfiguration.objects.filter(
+               subject_id=subject_id,
+               faculty_id=faculty_id
+        ).values("co_number", "statement")
+
+            return JsonResponse({
+                "cos": list(cos)
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+from django.db.models import Count
+@csrf_exempt
+def get_all_co_details(request):
+    faculty_id = request.GET.get("faculty_id")
+
+    if not faculty_id:
+        return JsonResponse([], safe=False)
+
+    configs = COConfiguration.objects.select_related("subject").filter(
+        faculty_id=faculty_id
+    )
+
+    data = {}
+
+    for co in configs:
+        subject = co.subject
+
+        key = subject.id
+
+        if key not in data:
+            data[key] = {
+    "subject_id": subject.id,   # 🔥 ADD THIS
+    "subject_code": subject.subject_code,
+    "subject_name": subject.subject_name,
+    "branch": subject.branch,
+    "semester": subject.semester,
+    "co_count": 0,
+}
+        data[key]["co_count"] += 1
+
+    return JsonResponse(list(data.values()), safe=False)
+@csrf_exempt
+def get_co_by_subject(request):
+    subject_id = request.GET.get("subject_id")
+    faculty_id = request.GET.get("faculty_id")
+
+    if not subject_id:
+        return JsonResponse([], safe=False)
+
+    # 🔥 HANDLE BOTH CASES
+    if faculty_id:
+        cos = COConfiguration.objects.filter(
+            subject_id=subject_id,
+            faculty_id=faculty_id
+        ).order_by("co_number")
+    else:
+        # 🔥 fallback (for safety)
+        cos = COConfiguration.objects.filter(
+            subject_id=subject_id
+        ).order_by("co_number")
+
+    data = [
+        {
+            "id": co.id,
+            "co_number": co.co_number,
+            "co_description": co.statement
+        }
+        for co in cos
+    ]
+
+    return JsonResponse(data, safe=False)
+@csrf_exempt
+def update_co(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            co_id = data.get("id")
+            statement = data.get("statement")
+            faculty_id = data.get("faculty_id")
+
+            co = COConfiguration.objects.get(id=co_id)
+
+            # ✅ SECURITY: only owner can update
+            if str(co.faculty_id) != str(faculty_id):
+                return JsonResponse({"error": "Unauthorized"}, status=403)
+
+            co.statement = statement
+            co.save()
+
+            return JsonResponse({"message": "Updated successfully"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+@csrf_exempt
+def add_co_single(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            subject_code = data.get("subject_code")
+            co_number = data.get("co_number")
+            statement = data.get("statement")
+            faculty_id = data.get("faculty_id")
+
+            subject = Subject.objects.get(subject_code=subject_code)
+            faculty = Faculty.objects.get(id=faculty_id)
+
+            # ✅ Prevent duplicate CO number per faculty
+            if COConfiguration.objects.filter(
+                subject=subject,
+                faculty=faculty,
+                co_number=co_number
+            ).exists():
+                return JsonResponse({"error": "CO already exists"}, status=400)
+
+            COConfiguration.objects.create(
+                subject=subject,
+                faculty=faculty,   # 🔥 IMPORTANT
+                co_number=co_number,
+                statement=statement
+            )
+
+            return JsonResponse({"message": "CO added successfully"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+@csrf_exempt
+def delete_co(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            co_id = data.get("id")
+            faculty_id = data.get("faculty_id")
+
+            co = COConfiguration.objects.get(id=co_id)
+
+            # ✅ SECURITY: only owner can delete
+            if str(co.faculty_id) != str(faculty_id):
+                return JsonResponse({"error": "Unauthorized"}, status=403)
+
+            co.delete()
+
+            return JsonResponse({"message": "Deleted successfully"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+def download_co_details(request):
+    subject_code = request.GET.get("subject_code")
+    faculty_id = request.GET.get("faculty_id")
+
+    if not subject_code or not faculty_id:
+        return HttpResponse("Missing subject_code or faculty_id", status=400)
+
+    cos = COConfiguration.objects.filter(
+        subject__subject_code=subject_code,
+        faculty_id=faculty_id
+    )
+
+    if not cos.exists():
+        return HttpResponse("No data found", status=404)
+
+    subject = cos.first().subject
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{subject.subject_name}_{subject.branch}_Sem{subject.semester}_CO_Details.csv"'
+
+    writer = csv.writer(response)
+
+    writer.writerow(["Subject:", subject.subject_name])
+    writer.writerow(["Branch:", subject.branch])
+    writer.writerow(["Semester:", subject.semester])
+    writer.writerow([])
+
+    writer.writerow(["CO Number", "Statement"])
+
+    for co in cos:
+        writer.writerow([co.co_number, co.statement])
+
+    return response
