@@ -34,6 +34,7 @@ const PrincipalDashboard: React.FC = () => {
   const [showFaculty, setShowFaculty] = useState(false);
   const [selectedFacultyBranch, setSelectedFacultyBranch] = useState("");
   const [selectedDesignation, setSelectedDesignation] = useState("");
+  const [selectedSubjectFaculty, setSelectedSubjectFaculty] = useState("");
 
   const [coData, setCoData] = useState<any[]>([]);
   const [showCO, setShowCO] = useState(false);
@@ -238,7 +239,9 @@ const PrincipalDashboard: React.FC = () => {
       (selectedSubjectBranch === "" ||
         s.branch?.toUpperCase() === selectedSubjectBranch) &&
       (selectedSubjectSemester === "" ||
-        s.semester.toString() === selectedSubjectSemester)
+        s.semester.toString() === selectedSubjectSemester) &&
+      (selectedSubjectFaculty === "" ||
+        s.faculty_name === selectedSubjectFaculty)
     );
   });
 
@@ -274,7 +277,9 @@ const PrincipalDashboard: React.FC = () => {
       subjects.map((s) => s.branch?.trim().toUpperCase()).filter(Boolean),
     ),
   ];
-
+  const subjectFacultyList = [
+    ...new Set(subjects.map((s) => s.faculty_name?.trim()).filter(Boolean)),
+  ];
   const handleLogoutConfirm = () => {
     localStorage.clear();
     setIsLogoutModalOpen(false);
@@ -680,7 +685,7 @@ const PrincipalDashboard: React.FC = () => {
             </div>
 
             {/* FILTER */}
-            <div className="flex gap-4 mb-4">
+            <div className="flex gap-4 mb-4 flex-wrap">
               {/* BRANCH */}
               <select
                 value={selectedSubjectBranch}
@@ -706,6 +711,20 @@ const PrincipalDashboard: React.FC = () => {
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
                   <option key={sem} value={sem}>
                     Sem {sem}
+                  </option>
+                ))}
+              </select>
+              {/* FACULTY */}
+              <select
+                value={selectedSubjectFaculty}
+                onChange={(e) => setSelectedSubjectFaculty(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">All Faculty</option>
+
+                {subjectFacultyList.map((f, index) => (
+                  <option key={index} value={f}>
+                    {f}
                   </option>
                 ))}
               </select>
