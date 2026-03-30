@@ -885,6 +885,7 @@ def get_all_subjects(request):
                 "semester": s.semester,
                 "session": s.session,
                 "batch": s.batch,
+                 "faculty_name": s.created_by.full_name 
             })
 
         return JsonResponse(subject_list, safe=False)
