@@ -38,4 +38,6 @@ path('delete-co/', views.delete_co),
 path('download-co-details/', views.download_co_details),
 path('principal-co/', views.principal_co),
 path('download-co-pdf/', views.download_co_pdf),
+path('sessions/', views.get_sessions),
+path('save-attainment/', views.save_attainment),
 ]

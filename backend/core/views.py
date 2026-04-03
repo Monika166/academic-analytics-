@@ -1530,3 +1530,37 @@ def download_co_details(request):
         writer.writerow([co.co_number, co.statement])
 
     return response
+def get_sessions(request):
+    try:
+        sessions = Subject.objects.values_list("session", flat=True).distinct()
+        return JsonResponse(list(sessions), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+from django.http import JsonResponse    
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import AttainmentLevel
+
+@csrf_exempt
+def save_attainment(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            session = data.get("session")
+            level1 = data.get("level1")
+            level2 = data.get("level2")
+            level3 = data.get("level3")
+
+            AttainmentLevel.objects.create(
+                session=session,
+                level1=level1,
+                level2=level2,
+                level3=level3
+            )
+
+            return JsonResponse({"message": "Saved successfully"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)

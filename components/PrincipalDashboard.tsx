@@ -10,8 +10,58 @@ import {
   LogOut,
 } from "lucide-react";
 
+type COAType = {
+  branch: string;
+  subject: string;
+  semester: number;
+  attainment: number;
+};
 const PrincipalDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const handleSaveAttainment = async () => {
+    if (!selectedSession || !level1 || !level2 || !level3) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/save-attainment/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session: selectedSession,
+          level1: Number(level1),
+          level2: Number(level2),
+          level3: Number(level3),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Error saving");
+        return;
+      }
+
+      alert("Attainment levels saved successfully!");
+
+      // reset
+      setLevel1("");
+      setLevel2("");
+      setLevel3("");
+      setSelectedSession("");
+      setShowAttainment(false);
+
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+  const [level1, setLevel1] = useState("");
+  const [level2, setLevel2] = useState("");
+  const [level3, setLevel3] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -21,6 +71,7 @@ const PrincipalDashboard: React.FC = () => {
 
   const [principalName, setPrincipalName] = useState("Principal");
   const [students, setStudents] = useState<any[]>([]);
+  const [showAttainment, setShowAttainment] = useState(false);
   const [stats, setStats] = useState({
     students: 0,
     faculty: 0,
@@ -41,13 +92,14 @@ const PrincipalDashboard: React.FC = () => {
 
   const [selectedCOBranch, setSelectedCOBranch] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
-
+  const [sessions, setSessions] = useState<string[]>([]);
+  const [selectedSession, setSelectedSession] = useState("");
   const [subjects, setSubjects] = useState<any[]>([]);
   const [showSubjects, setShowSubjects] = useState(false);
   const [selectedSubjectBranch, setSelectedSubjectBranch] = useState("");
   const [selectedSubjectSemester, setSelectedSubjectSemester] = useState("");
   const [showCODetails, setShowCODetails] = useState(false);
-  const [coaData, setCoaData] = useState<any[]>([]);
+  const [coaData, setCoaData] = useState<COAType[]>([]);
   const [showCOA, setShowCOA] = useState(false);
   // CO DETAILS MODAL STATES
   const [coSubject, setCoSubject] = useState("");
@@ -76,7 +128,7 @@ const PrincipalDashboard: React.FC = () => {
     }
   };
   //const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
+  const [filteredData, setFilteredData] = useState<COAType[]>([]);
   // CO DETAILS FILTER
   const [coBranch, setCoBranch] = useState("");
   const [coSemester, setCoSemester] = useState("");
@@ -131,6 +183,19 @@ const PrincipalDashboard: React.FC = () => {
     };
 
     fetchStats();
+  }, []);
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/sessions/");
+        const data = await res.json();
+        setSessions(data);
+      } catch (err) {
+        console.error("Error fetching sessions:", err);
+      }
+    };
+
+    fetchSessions();
   }, []);
 
   useEffect(() => {
@@ -346,9 +411,8 @@ const PrincipalDashboard: React.FC = () => {
               </div>
               <ChevronDown
                 size={14}
-                className={`transition-transform ${
-                  isDropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -664,6 +728,14 @@ const PrincipalDashboard: React.FC = () => {
             <h3 className="text-slate-500 text-sm">Course Attainment</h3>
             <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
           </div>
+          {/* ATTAINMENT LEVEL */}
+          <div
+            onClick={() => setShowAttainment(true)}
+            className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
+          >
+            <h3 className="text-slate-500 text-sm">Attainment Level</h3>
+            <p className="text-3xl font-bold text-blue-700 mt-2">Set</p>
+          </div>
         </div>
       </div>
 
@@ -857,7 +929,7 @@ const PrincipalDashboard: React.FC = () => {
                   .filter(
                     (s) =>
                       s.branch?.toUpperCase().trim() ===
-                        coBranch.toUpperCase().trim() &&
+                      coBranch.toUpperCase().trim() &&
                       s.semester.toString() === coSemester.toString(),
                   )
                   .map((s) => (
@@ -1193,6 +1265,93 @@ const PrincipalDashboard: React.FC = () => {
                 Export Excel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {showAttainment && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+          <div className="relative bg-white w-[90%] max-w-xl rounded-2xl shadow-xl p-6 z-10">
+            {/* HEADER */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Attainment Level</h3>
+
+              <button
+                onClick={() => setShowAttainment(false)}
+                className="text-red-500 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* TEMP CONTENT */}
+            {/* SESSION DROPDOWN */}
+            <div className="mb-4">
+              <label className="block font-semibold mb-1">Select Session</label>
+
+              <select
+                value={selectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="w-full border px-4 py-2 rounded"
+              >
+                <option value="">Select Session</option>
+
+                {sessions.map((session, index) => (
+                  <option key={index} value={session}>
+                    {session}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* LEVEL INPUTS */}
+            {selectedSession && (
+              <div className="space-y-4 mt-4">
+                <p className="font-semibold">Enter Levels of Attainment</p>
+
+                {/* LEVEL 1 */}
+                <div>
+                  <label className="block text-sm font-medium">Level 1</label>
+                  <input
+                    type="number"
+                    value={level1}
+                    onChange={(e) => setLevel1(e.target.value)}
+                    className="w-full border px-4 py-2 rounded"
+                    placeholder="Enter Level 1"
+                  />
+                </div>
+
+                {/* LEVEL 2 */}
+                <div>
+                  <label className="block text-sm font-medium">Level 2</label>
+                  <input
+                    type="number"
+                    value={level2}
+                    onChange={(e) => setLevel2(e.target.value)}
+                    className="w-full border px-4 py-2 rounded"
+                    placeholder="Enter Level 2"
+                  />
+                </div>
+
+                {/* LEVEL 3 */}
+                <div>
+                  <label className="block text-sm font-medium">Level 3</label>
+                  <input
+                    type="number"
+                    value={level3}
+                    onChange={(e) => setLevel3(e.target.value)}
+                    className="w-full border px-4 py-2 rounded"
+                    placeholder="Enter Level 3"
+                  />
+                    </div>
+                  <button
+                    onClick={handleSaveAttainment}
+                    className="mt-6 bg-blue-700 text-white px-6 py-2 rounded shadow"
+                  >
+                    Save
+                  </button>
+              </div>
+            )}
           </div>
         </div>
       )}
