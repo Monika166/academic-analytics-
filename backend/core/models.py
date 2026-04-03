@@ -94,3 +94,15 @@ class COConfiguration(models.Model):
 
     def __str__(self):
         return f"{self.subject.subject_code} - CO{self.co_number}"
+    
+class AttainmentLevel(models.Model):
+    session = models.CharField(max_length=50)
+
+    level1 = models.FloatField()
+    level2 = models.FloatField()
+    level3 = models.FloatField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.session} - Levels"
