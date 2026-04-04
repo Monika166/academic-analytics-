@@ -21,8 +21,14 @@ interface Subject {
 
 const HodDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [backendAttainment, setBackendAttainment] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [levels, setLevels] = useState<any>({
+    level1: 50,
+    level2: 60,
+    level3: 70,
+  });
 
   const [selectedSemester, setSelectedSemester] = useState<string>("1");
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -75,46 +81,79 @@ const HodDashboard: React.FC = () => {
       : subjects.filter((s) => s.semester === Number(selectedSemester));
 
   const semesters = ["all", "1", "2", "3", "4", "5", "6", "7", "8"];
-  const handleViewCO = (subject: any) => {
-    setSelectedSubject(subject);
-    setCoData(subject.co_data || []); // 👈 from existing API
-    setShowModal(true);
-  };
-  const handleDownload = () => {
-    if (!selectedSubject) return;
+  const handleViewCO = async (subject: any) => {
+    try {
+      // ✅ Fetch levels FIRST
+      setLevels({
+        level1: 50,
+        level2: 60,
+        level3: 70,
+      });
+      const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+      const coaData = await coaRes.json();
 
+      const subjectCOA = coaData.find(
+        (item: any) =>
+          item.subject.trim().toLowerCase() === subject.subject_name.trim().toLowerCase() &&
+          item.branch === subject.branch &&
+          String(item.semester) === String(subject.semester)
+      );
+
+      setBackendAttainment(subjectCOA ? subjectCOA.attainment : 0);
+
+      // ✅ THEN open modal
+      setSelectedSubject(subject);
+      setCoData(subject.co_data || []);
+
+      setTimeout(() => {
+        setShowModal(true);
+      }, 0);
+
+    } catch (err) {
+      console.error("Error fetching levels", err);
+
+      // fallback
+      setLevels({
+        level1: 50,
+        level2: 60,
+        level3: 70,
+      });
+
+      setSelectedSubject(subject);
+      setCoData(subject.co_data || []);
+
+      setTimeout(() => {
+        setShowModal(true);
+      }, 0);
+    }
+
+  };
+  const handleDownload = async () => {
+    if (!selectedSubject) return;
+    const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+    const coaData = await coaRes.json();
+
+    // find current subject data
+    const subjectCOA = coaData.find(
+      (item: any) =>
+        item.subject === selectedSubject.subject_name &&
+        item.branch === selectedSubject.branch &&
+        String(item.semester) === String(selectedSubject.semester)
+    );
+
+    const backendAttainment = subjectCOA ? subjectCOA.attainment : 0;
+    const updatedLevels = {
+      level1: 50,
+      level2: 60,
+      level3: 70,
+    };
     let csv = "";
 
     const coNumbers = coData.map((co: any) => co.co_number);
 
-    let avgMarks: any = {};
-    let studentsAboveAvg: any = {};
-    let attainment: any = {};
+    
 
-    // ===== CALCULATIONS =====
-    coNumbers.forEach((coNum: number) => {
-      const values = (selectedSubject.students || []).map(
-        (stu: any) => stu[`co${coNum}`] || 0,
-      );
-
-      const total = values.reduce((a: number, b: number) => a + b, 0);
-      const avg = values.length ? total / values.length : 0;
-
-      avgMarks[coNum] = avg.toFixed(2);
-
-      const count = values.filter((v: number) => v >= avg).length;
-      studentsAboveAvg[coNum] = count;
-
-      const attain = values.length ? count / values.length : 0;
-      attainment[coNum] = attain.toFixed(2);
-    });
-
-    const avgAttainment =
-      (Object.values(attainment) as number[]).reduce(
-        (a, b) => a + Number(b),
-        0,
-      ) / (coNumbers.length || 1);
-
+    const avgAttainment = backendAttainment;
     // ===== HEADER =====
     csv += `Subject:,${selectedSubject.subject_name}\n`;
     csv += `Branch:,${selectedSubject.branch}\n`;
@@ -156,20 +195,6 @@ const HodDashboard: React.FC = () => {
     coNumbers.forEach((co: number) => (csv += `CO${co},`));
     csv += "Overall\n";
 
-    // Average Marks
-    csv += "Average Marks,";
-    coNumbers.forEach((co: number) => (csv += `${avgMarks[co]},`));
-    csv += "-\n";
-
-    // Students ≥ Avg
-    csv += "Students >= Avg,";
-    coNumbers.forEach((co: number) => (csv += `${studentsAboveAvg[co]},`));
-    csv += "-\n";
-
-    // CO Attainment
-    csv += "CO Attainment,";
-    coNumbers.forEach((co: number) => (csv += `${attainment[co]},`));
-    csv += "-\n";
 
     // Average CO Attainment
     csv += "Average CO Attainment,";
@@ -183,36 +208,17 @@ const HodDashboard: React.FC = () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = "co_report.csv";
+
+    document.body.appendChild(a); // 🔥 IMPORTANT
     a.click();
+    document.body.removeChild(a);
   };
   const handleLogoutConfirm = () => {
     localStorage.clear();
     setIsLogoutModalOpen(false);
     navigate("/hod-login");
   };
-  // 🔥 ADD THIS BLOCK JUST BEFORE return (IMPORTANT)
-  const coNumbers = coData.map((co: any) => co.co_number);
 
-  let avgMarks: any = {};
-  let studentsAboveAvg: any = {};
-  let attainment: any = {};
-
-  coNumbers.forEach((coNum: number) => {
-    const values = (selectedSubject?.students || []).map(
-      (stu: any) => stu[`co${coNum}`] || 0,
-    );
-
-    const total = values.reduce((a: number, b: number) => a + b, 0);
-    const avg = values.length ? total / values.length : 0;
-
-    avgMarks[coNum] = avg.toFixed(2);
-
-    const count = values.filter((v: number) => v >= avg).length;
-    studentsAboveAvg[coNum] = count;
-
-    const attain = values.length ? count / values.length : 0;
-    attainment[coNum] = attain.toFixed(2);
-  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -360,23 +366,21 @@ const HodDashboard: React.FC = () => {
                 <button
                   key={sem}
                   onClick={() => setSelectedSemester(sem)}
-                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
-                    selectedSemester === sem
-                      ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${selectedSemester === sem
+                    ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                 >
                   {sem === "all"
                     ? "All Semesters"
-                    : `${sem}${
-                        sem === "1"
-                          ? "st"
-                          : sem === "2"
-                            ? "nd"
-                            : sem === "3"
-                              ? "rd"
-                              : "th"
-                      } Sem`}
+                    : `${sem}${sem === "1"
+                      ? "st"
+                      : sem === "2"
+                        ? "nd"
+                        : sem === "3"
+                          ? "rd"
+                          : "th"
+                    } Sem`}
                 </button>
               ))}
             </div>
@@ -403,11 +407,10 @@ const HodDashboard: React.FC = () => {
                       </button>
                     )}
                     <span
-                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
-                        subject.is_active
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
+                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${subject.is_active
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                        }`}
                     >
                       {subject.is_active ? "ACTIVE" : "INACTIVE"}
                     </span>
@@ -551,38 +554,7 @@ const HodDashboard: React.FC = () => {
                 </thead>
 
                 <tbody>
-                  {/* Average Marks */}
-                  <tr>
-                    <td className="border p-2 font-semibold">Average Marks</td>
-                    {coData.map((co: any) => (
-                      <td key={co.co_number} className="border p-2 text-center">
-                        {avgMarks[co.co_number]}
-                      </td>
-                    ))}
-                    <td className="border p-2 text-center">-</td>
-                  </tr>
 
-                  {/* Students ≥ Avg */}
-                  <tr>
-                    <td className="border p-2 font-semibold">Students ≥ Avg</td>
-                    {coData.map((co: any) => (
-                      <td key={co.co_number} className="border p-2 text-center">
-                        {studentsAboveAvg[co.co_number]}
-                      </td>
-                    ))}
-                    <td className="border p-2 text-center">-</td>
-                  </tr>
-
-                  {/* CO Attainment */}
-                  <tr>
-                    <td className="border p-2 font-semibold">CO Attainment</td>
-                    {coData.map((co: any) => (
-                      <td key={co.co_number} className="border p-2 text-center">
-                        {attainment[co.co_number]}
-                      </td>
-                    ))}
-                    <td className="border p-2 text-center">-</td>
-                  </tr>
 
                   {/* Average CO Attainment */}
                   <tr className="bg-gray-100 font-semibold">
@@ -593,12 +565,8 @@ const HodDashboard: React.FC = () => {
                     ))}
 
                     <td className="border p-2 text-center">
-                      {(
-                        (Object.values(attainment) as number[]).reduce(
-                          (a, b) => a + Number(b),
-                          0,
-                        ) / (coNumbers.length || 1)
-                      ).toFixed(2)}
+
+                      {backendAttainment.toFixed(2)}
                     </td>
                   </tr>
                 </tbody>

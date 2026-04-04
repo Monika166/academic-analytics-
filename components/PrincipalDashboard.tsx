@@ -53,6 +53,7 @@ const PrincipalDashboard: React.FC = () => {
       setLevel3("");
       setSelectedSession("");
       setShowAttainment(false);
+      await fetchCOAData();  // 🔥 IMPORTANT
 
     } catch (err) {
       console.error(err);
@@ -101,6 +102,17 @@ const PrincipalDashboard: React.FC = () => {
   const [showCODetails, setShowCODetails] = useState(false);
   const [coaData, setCoaData] = useState<COAType[]>([]);
   const [showCOA, setShowCOA] = useState(false);
+  const fetchCOAData = async () => {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+    const data = await res.json();
+    console.log("REFRESHED DATA:", data);
+    setCoaData(data);
+    setFilteredData(data);
+  } catch (error) {
+    console.error("Error fetching COA:", error);
+  }
+};
   // CO DETAILS MODAL STATES
   const [coSubject, setCoSubject] = useState("");
   const [coSubjects, setCoSubjects] = useState<any[]>([]);
@@ -259,20 +271,8 @@ const PrincipalDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCOA = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-        const data = await res.json();
-        console.log("API RESPONSE:", data);
-        setCoaData(data);
-        setFilteredData(data);
-      } catch (error) {
-        console.error("Error fetching COA:", error);
-      }
-    };
-
-    fetchCOA();
-  }, []);
+  fetchCOAData();
+}, []);
 
   const filteredStudents = students.filter((student) => {
     return (
@@ -1117,21 +1117,40 @@ const PrincipalDashboard: React.FC = () => {
             {/* EXPORT */}
             <div className="flex justify-end mt-4">
               <button
-                onClick={() => {
-                  const selectedSub = subjects.find(
-                    (s) => s.id == selectedSubjectId,
-                  );
+  onClick={() => {
+    // ✅ Check branch
+    if (!selectedCOBranch) {
+      alert("Please select branch");
+      return;
+    }
 
-                  const semester = selectedSub?.semester || 1;
+    // ✅ Get selected subject
+    const selectedSub = subjects.find(
+      (s) => s.id == selectedSubjectId
+    );
 
-                  const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${selectedSub?.subject_name}`;
+    // ✅ Check subject
+    if (!selectedSub) {
+      alert("Please select subject");
+      return;
+    }
 
-                  window.open(url, "_blank");
-                }}
-                className="bg-blue-700 text-white px-4 py-2 rounded shadow"
-              >
-                Download Excel
-              </button>
+    // ✅ Correct semester
+    const semester = selectedSub.semester;
+
+    // ✅ Encode subject (IMPORTANT)
+    const encodedSubject = encodeURIComponent(selectedSub.subject_name);
+
+    const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
+
+    console.log("DOWNLOAD URL:", url);
+
+    window.open(url, "_blank");
+  }}
+  className="bg-blue-700 text-white px-4 py-2 rounded shadow"
+>
+  Download Excel
+</button>
             </div>
           </div>
         </div>

@@ -10,5 +10,6 @@ def home(request):
 urlpatterns = [
     path('', home),                     # http://127.0.0.1:8000/
     path('admin/', admin.site.urls),    # admin panel
+    path('api/', include('core.urls')), 
     path('api/', include('core.urls')), # your app routes
 ]
