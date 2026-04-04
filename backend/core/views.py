@@ -2,7 +2,7 @@ from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty, Subject, Student, CourseOutcome, COMark
+from .models import Faculty, Subject, Student, CourseOutcome, COMark, AttainmentLevel
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import csv
@@ -679,11 +679,13 @@ def download_excel(request, branch, semester):
     ws.append(["Course Outcomes"])
     ws["A5"].font = Font(bold=True, size=14)
 
+    # ✅ Write CO rows
+    start_row = 6
+
     for co in co_details:
         ws.append([f"CO{co.co_number}", co.statement])
-        start_row = 6
-    end_row = 6 + len(co_details) - 1
 
+    end_row = start_row + len(co_details) - 1
     for row in ws.iter_rows(min_row=start_row, max_row=end_row, min_col=1, max_col=2):
       for cell in row:
          cell.border = thin_border
@@ -754,24 +756,44 @@ def download_excel(request, branch, semester):
 
     above_avg = {co: 0 for co in co_list}
 
+    
     for student in students.values():
         for co in co_list:
             if student.get(co, 0) >= co_avg[co]:
                 above_avg[co] += 1
 
+    # 🔥 GET SUBJECT SESSION
+    subject_obj = Subject.objects.filter(subject_name=subject_name).first()
+    session = subject_obj.session if subject_obj else None
+    levels = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
+
+    # 🔥 FETCH LEVELS ONCE
+
+    if levels:
+        level1 = levels.level1
+        level2 = levels.level2
+        level3 = levels.level3
+    else:
+        level1, level2, level3 = 50, 60, 70
+
     co_attainment = {}
 
+    
     for co in co_list:
         percentage = (above_avg[co] / student_count) * 100 if student_count else 0
-
-        if percentage >= 70:
-            co_attainment[co] = 0.9
-        elif percentage >= 60:
-            co_attainment[co] = 0.6
-        elif percentage >= 50:
-            co_attainment[co] = 0.3
+        if percentage >= level3:
+            level = 3
+        elif percentage >= level2:
+            level = 2
+        elif percentage >= level1:
+            level = 1
         else:
-            co_attainment[co] = 0
+            level = 0
+
+        # ✅ Apply 0.9 multiplier
+        final_attainment = round(0.9 * level, 2)
+
+        co_attainment[co] = final_attainment
 
     ws.append([])
 
@@ -1210,18 +1232,35 @@ def course_attainment(request):
 
                 above_avg = sum(1 for m in marks_list if m >= avg)
 
-                percentage = (above_avg / total_students) * 100
+                percentage = (above_avg / total_students) * 100 if total_students else 0
 
                 # SAME LOGIC AS download_excel
-                if percentage >= 70:
-                    attainment = 0.9
-                elif percentage >= 60:
-                    attainment = 0.6
-                elif percentage >= 50:
-                    attainment = 0.3
-                else:
-                    attainment = 0
+                # 🔥 GET SESSION FROM SUBJECT
+                subject_obj = Subject.objects.filter(subject_name=subject).first()
+                session = subject_obj.session if subject_obj else None
 
+            
+                # 🔥 APPLY LOGIC
+                
+                levels = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
+                if levels:
+                    level1 = levels.level1
+                    level2 = levels.level2
+                    level3 = levels.level3
+                else:
+                    level1, level2, level3 = 50, 60, 70
+
+                if percentage >= level3:
+                    level = 3
+                elif percentage >= level2:
+                    level = 2
+                elif percentage >= level1:
+                    level = 1
+                else:
+                    level = 0
+
+                # ✅ Apply 0.9 multiplier
+                attainment = round(0.9 * level, 2)
                 attainment_list.append(attainment)
 
             final_attainment = sum(attainment_list) / len(attainment_list)
@@ -1540,10 +1579,10 @@ def get_sessions(request):
 from django.http import JsonResponse    
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import AttainmentLevel
 
 @csrf_exempt
 def save_attainment(request):
+
     if request.method == "POST":
         try:
             data = json.loads(request.body)
@@ -1564,3 +1603,23 @@ def save_attainment(request):
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
+        
+
+@csrf_exempt
+def get_attainment(request):
+    session = request.GET.get("session")
+
+    if not session:
+        return JsonResponse({"exists": False})
+
+    level = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
+
+    if not level:
+        return JsonResponse({"exists": False})
+
+    return JsonResponse({
+        "exists": True,
+        "level1": level.level1,
+        "level2": level.level2,
+        "level3": level.level3,
+    })
