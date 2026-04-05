@@ -15,9 +15,14 @@ type COAType = {
   subject: string;
   semester: number;
   attainment: number;
+  level: number;
 };
 const PrincipalDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [isAlreadySet, setIsAlreadySet] = useState(false);
+  const [savedData, setSavedData] = useState<any>(null);
+  const [showSaved, setShowSaved] = useState(false);
+  const [isModifyMode, setIsModifyMode] = useState(false);
   const handleSaveAttainment = async () => {
     if (!selectedSession || !level1 || !level2 || !level3) {
       alert("Please fill all fields");
@@ -39,6 +44,7 @@ const PrincipalDashboard: React.FC = () => {
       });
 
       const data = await res.json();
+      console.log("API RESPONSE:", data);
 
       if (!res.ok) {
         alert(data.error || "Error saving");
@@ -46,12 +52,18 @@ const PrincipalDashboard: React.FC = () => {
       }
 
       alert("Attainment levels saved successfully!");
-
+      setIsAlreadySet(true);
+      setSavedData({
+        level1,
+        level2,
+        level3
+      });
+      setIsModifyMode(false);
+      setShowSaved(false);
       // reset
       setLevel1("");
       setLevel2("");
       setLevel3("");
-      setSelectedSession("");
       setShowAttainment(false);
       await fetchCOAData();  // 🔥 IMPORTANT
 
@@ -59,6 +71,7 @@ const PrincipalDashboard: React.FC = () => {
       console.error(err);
       alert("Server error");
     }
+
   };
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
@@ -103,16 +116,16 @@ const PrincipalDashboard: React.FC = () => {
   const [coaData, setCoaData] = useState<COAType[]>([]);
   const [showCOA, setShowCOA] = useState(false);
   const fetchCOAData = async () => {
-  try {
-    const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-    const data = await res.json();
-    console.log("REFRESHED DATA:", data);
-    setCoaData(data);
-    setFilteredData(data);
-  } catch (error) {
-    console.error("Error fetching COA:", error);
-  }
-};
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+      const data = await res.json();
+      console.log("REFRESHED DATA:", data);
+      setCoaData(data);
+      setFilteredData(data);
+    } catch (error) {
+      console.error("Error fetching COA:", error);
+    }
+  };
   // CO DETAILS MODAL STATES
   const [coSubject, setCoSubject] = useState("");
   const [coSubjects, setCoSubjects] = useState<any[]>([]);
@@ -161,6 +174,42 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchCO();
   }, [coBranch, coSemester, coSubject]);
+  useEffect(() => {
+    if (!selectedSession) return;
+
+    const fetchAttainment = async () => {
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`
+        );
+
+        const data = await res.json();
+
+        if (data && data.level1 !== undefined && data.level2 !== undefined && data.level3 !== undefined) {
+          setIsAlreadySet(true);
+          setSavedData(data);
+
+          // 🔥 ADD THESE 3 LINES (VERY IMPORTANT)
+          setLevel1(data.level1);
+          setLevel2(data.level2);
+          setLevel3(data.level3);
+
+        } else {
+          setIsAlreadySet(false);
+          setSavedData(null);
+
+          // 🔥 ALSO CLEAR INPUTS FOR NEW SESSION
+          setLevel1("");
+          setLevel2("");
+          setLevel3("");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchAttainment();
+  }, [selectedSession]);
   useEffect(() => {
     let filtered = coaData;
 
@@ -271,8 +320,8 @@ const PrincipalDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-  fetchCOAData();
-}, []);
+    fetchCOAData();
+  }, []);
 
   const filteredStudents = students.filter((student) => {
     return (
@@ -569,9 +618,34 @@ const PrincipalDashboard: React.FC = () => {
                 {/* IMPORT BUTTON */}
                 <div className="flex justify-end mt-4">
                   <button
+
                     onClick={() => {
-                      const url = `http://127.0.0.1:8000/api/export-students/?branch=${selectedBranch}&semester=${selectedSemester}`;
-                      window.open(url, "_blank");
+                      if (filteredStudents.length === 0) {
+                        alert("No students to export");
+                        return;
+                      }
+
+                      const headers = ["Name", "Registration No", "Branch", "Semester"];
+
+                      const rows = filteredStudents.map((s) => [
+                        s.full_name,
+                        s.registration_number,
+                        s.branch,
+                        s.semester,
+                      ]);
+
+                      const csvContent = [headers, ...rows]
+                        .map((row) => row.join(","))
+                        .join("\n");
+
+                      const blob = new Blob([csvContent], { type: "text/csv" });
+                      const url = window.URL.createObjectURL(blob);
+
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "Students_List.csv";
+                      a.click();
+
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
@@ -879,9 +953,7 @@ const PrincipalDashboard: React.FC = () => {
               <select
                 value={coBranch}
                 onChange={(e) => {
-                  setCoBranch(e.target.value);
-                  setCoSemester("");
-                  setCoSubject("");
+                  setCoBranch(e.target.value);   // ✅ CORRECT
                 }}
                 className="border px-4 py-2 rounded"
               >
@@ -973,8 +1045,8 @@ const PrincipalDashboard: React.FC = () => {
                     alert("Please select branch, semester and subject");
                     return;
                   }
-
-                  const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
+const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
+                  
 
                   window.open(url, "_blank");
                 }}
@@ -1117,40 +1189,40 @@ const PrincipalDashboard: React.FC = () => {
             {/* EXPORT */}
             <div className="flex justify-end mt-4">
               <button
-  onClick={() => {
-    // ✅ Check branch
-    if (!selectedCOBranch) {
-      alert("Please select branch");
-      return;
-    }
+                onClick={() => {
+                  // ✅ Check branch
+                  if (!selectedCOBranch) {
+                    alert("Please select branch");
+                    return;
+                  }
 
-    // ✅ Get selected subject
-    const selectedSub = subjects.find(
-      (s) => s.id == selectedSubjectId
-    );
+                  // ✅ Get selected subject
+                  const selectedSub = subjects.find(
+                    (s) => s.id == selectedSubjectId
+                  );
 
-    // ✅ Check subject
-    if (!selectedSub) {
-      alert("Please select subject");
-      return;
-    }
+                  // ✅ Check subject
+                  if (!selectedSub) {
+                    alert("Please select subject");
+                    return;
+                  }
 
-    // ✅ Correct semester
-    const semester = selectedSub.semester;
+                  // ✅ Correct semester
+                  const semester = selectedSub.semester;
 
-    // ✅ Encode subject (IMPORTANT)
-    const encodedSubject = encodeURIComponent(selectedSub.subject_name);
+                  // ✅ Encode subject (IMPORTANT)
+                  const encodedSubject = encodeURIComponent(selectedSub.subject_name);
 
-    const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
+                  const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
 
-    console.log("DOWNLOAD URL:", url);
+                  console.log("DOWNLOAD URL:", url);
 
-    window.open(url, "_blank");
-  }}
-  className="bg-blue-700 text-white px-4 py-2 rounded shadow"
->
-  Download Excel
-</button>
+                  window.open(url, "_blank");
+                }}
+                className="bg-blue-700 text-white px-4 py-2 rounded shadow"
+              >
+                Download Excel
+              </button>
             </div>
           </div>
         </div>
@@ -1214,6 +1286,7 @@ const PrincipalDashboard: React.FC = () => {
                     <th className="px-6 py-3">Subject</th>
                     <th className="px-6 py-3">Semester</th>
                     <th className="px-6 py-3">Course Attainment</th>
+                    <th className="px-6 py-3">Level</th>
                   </tr>
                 </thead>
 
@@ -1226,6 +1299,9 @@ const PrincipalDashboard: React.FC = () => {
                         <td className="px-6 py-3">{c.semester}</td>
                         <td className="px-6 py-3 font-semibold text-blue-700">
                           {c.attainment}
+                        </td>
+                        <td className="px-6 py-3 font-semibold text-green-600">
+                          Level {c.level}
                         </td>
                       </tr>
                     ))
@@ -1311,7 +1387,20 @@ const PrincipalDashboard: React.FC = () => {
 
               <select
                 value={selectedSession}
-                onChange={(e) => setSelectedSession(e.target.value)}
+                onChange={(e) => {
+                  const session = e.target.value;
+
+                  setSelectedSession(session);
+
+                  // 🔥 RESET EVERYTHING (THIS IS KEY)
+                  setShowSaved(false);
+                  setIsModifyMode(false);
+                  setSavedData(null);
+
+                  setLevel1("");
+                  setLevel2("");
+                  setLevel3("");
+                }}
                 className="w-full border px-4 py-2 rounded"
               >
                 <option value="">Select Session</option>
@@ -1325,83 +1414,143 @@ const PrincipalDashboard: React.FC = () => {
             </div>
             {/* LEVEL INPUTS */}
             {selectedSession && (
-              <div className="space-y-4 mt-4">
-                <p className="font-semibold">Enter Levels of Attainment</p>
+              <div className="mt-4">
 
-                {/* LEVEL 1 */}
-                <div>
-                  <label className="block text-sm font-medium">Level 1</label>
-                  <input
-                    type="number"
-                    value={level1}
-                    onChange={(e) => setLevel1(e.target.value)}
-                    className="w-full border px-4 py-2 rounded"
-                    placeholder="Enter Level 1"
-                  />
-                </div>
+                {/* 🔥 ALREADY SET */}
+                {isAlreadySet && !isModifyMode && !showSaved && (
+                  <div className="space-y-4">
+                    <p className="text-green-600 font-semibold">
+                      Already Set for this session
+                    </p>
 
-                {/* LEVEL 2 */}
-                <div>
-                  <label className="block text-sm font-medium">Level 2</label>
-                  <input
-                    type="number"
-                    value={level2}
-                    onChange={(e) => setLevel2(e.target.value)}
-                    className="w-full border px-4 py-2 rounded"
-                    placeholder="Enter Level 2"
-                  />
-                </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowSaved(true)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded"
+                      >
+                        See Saved
+                      </button>
 
-                {/* LEVEL 3 */}
-                <div>
-                  <label className="block text-sm font-medium">Level 3</label>
-                  <input
-                    type="number"
-                    value={level3}
-                    onChange={(e) => setLevel3(e.target.value)}
-                    className="w-full border px-4 py-2 rounded"
-                    placeholder="Enter Level 3"
-                  />
+                      <button
+                        onClick={() => {
+                          setIsModifyMode(true);
+
+                          setLevel1(savedData.level1);
+                          setLevel2(savedData.level2);
+                          setLevel3(savedData.level3);
+                        }}
+                        className="bg-yellow-500 text-white px-4 py-2 rounded"
+                      >
+                        Modify
+                      </button>
+
+                      <button
+                        onClick={() => setShowAttainment(false)}
+                        className="border px-4 py-2 rounded"
+                      >
+                        Don’t
+                      </button>
                     </div>
-                  <button
-                    onClick={handleSaveAttainment}
-                    className="mt-6 bg-blue-700 text-white px-6 py-2 rounded shadow"
-                  >
-                    Save
-                  </button>
+                  </div>
+                )}
+
+                {/* 🔥 SEE SAVED */}
+                {showSaved && savedData && (
+                  <div className="space-y-3">
+                    <p className="font-semibold">Saved Values:</p>
+
+                    <p>Level 1: {savedData.level1}</p>
+                    <p>Level 2: {savedData.level2}</p>
+                    <p>Level 3: {savedData.level3}</p>
+
+                    <button
+                      onClick={() => setShowSaved(false)}
+                      className="border px-4 py-2 rounded"
+                    >
+                      Back
+                    </button>
+                  </div>
+                )}
+
+                {/* 🔥 CASE 1: SHOW SAVED VALUES */}
+
+
+                {/* 🔥 CASE 2: INPUT (NEW OR MODIFY) */}
+                {(!isAlreadySet || isModifyMode) && !showSaved && (
+                  <div className="space-y-4">
+                    <p className="font-semibold">Enter Levels of Attainment</p>
+
+                    <input
+                      type="number"
+                      value={level1}
+                      onChange={(e) => setLevel1(e.target.value)}
+                      placeholder="Level 1"
+                      className="w-full border px-4 py-2 rounded"
+                    />
+
+                    <input
+                      type="number"
+                      value={level2}
+                      onChange={(e) => setLevel2(e.target.value)}
+                      placeholder="Level 2"
+                      className="w-full border px-4 py-2 rounded"
+                    />
+
+                    <input
+                      type="number"
+                      value={level3}
+                      onChange={(e) => setLevel3(e.target.value)}
+                      placeholder="Level 3"
+                      className="w-full border px-4 py-2 rounded"
+                    />
+                    {/* ✅ MOVE SAVE BUTTON HERE */}
+                    <button
+                      onClick={handleSaveAttainment}
+                      className="bg-blue-700 text-white px-4 py-2 rounded"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+
+
+
               </div>
             )}
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* ================= LOGOUT MODAL ================= */}
-      {isLogoutModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40"></div>
+      {
+        isLogoutModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40"></div>
 
-          <div className="bg-white p-6 rounded-xl z-10 text-center">
-            <h3 className="font-bold mb-4">Confirm Logout</h3>
+            <div className="bg-white p-6 rounded-xl z-10 text-center">
+              <h3 className="font-bold mb-4">Confirm Logout</h3>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleLogoutConfirm}
-                className="bg-blue-700 text-white px-4 py-2 rounded"
-              >
-                Logout
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleLogoutConfirm}
+                  className="bg-blue-700 text-white px-4 py-2 rounded"
+                >
+                  Logout
+                </button>
 
-              <button
-                onClick={() => setIsLogoutModalOpen(false)}
-                className="border px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="border px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
