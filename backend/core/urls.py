@@ -1,7 +1,9 @@
 from django.urls import path
 from . import views
+from django.http import JsonResponse
 
 urlpatterns = [
+    path('test-api/', lambda request: JsonResponse({"ok": True})),
     path('register/', views.register_faculty),
     path('login/', views.login_faculty),
     path('add-co/', views.add_course_outcome),
@@ -40,4 +42,5 @@ path('principal-co/', views.principal_co),
 path('download-co-pdf/', views.download_co_pdf),
 path('sessions/', views.get_sessions),
 path('save-attainment/', views.save_attainment),
+path('get-attainment/', views.get_attainment),
 ]

@@ -90,14 +90,19 @@ const HodDashboard: React.FC = () => {
         level3: 70,
       });
       const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-      const coaData = await coaRes.json();
+const allData = await coaRes.json();
 
-      const subjectCOA = coaData.find(
-        (item: any) =>
-          item.subject.trim().toLowerCase() === subject.subject_name.trim().toLowerCase() &&
-          item.branch === subject.branch &&
-          String(item.semester) === String(subject.semester)
-      );
+// 🔥 FILTER ONLY HOD BRANCH DATA
+const subjectCOA = allData.find((item: any) => {
+  return (
+    item.subject?.toLowerCase().trim() === subject.subject_name?.toLowerCase().trim() &&
+    item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
+    Number(item.semester) === Number(subject.semester) &&
+    item.session === subject.session
+  );
+});
+
+      
 
       setBackendAttainment(subjectCOA ? subjectCOA.attainment : 0);
 
@@ -131,15 +136,18 @@ const HodDashboard: React.FC = () => {
   const handleDownload = async () => {
     if (!selectedSubject) return;
     const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-    const coaData = await coaRes.json();
+    const allData = await coaRes.json();
+
+const subjectCOA = allData.find((item: any) => {
+  return (
+    item.subject?.toLowerCase().trim() === selectedSubject.subject_name?.toLowerCase().trim() &&
+    item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
+    Number(item.semester) === Number(selectedSubject.semester) 
+  );
+});
 
     // find current subject data
-    const subjectCOA = coaData.find(
-      (item: any) =>
-        item.subject === selectedSubject.subject_name &&
-        item.branch === selectedSubject.branch &&
-        String(item.semester) === String(selectedSubject.semester)
-    );
+
 
     const backendAttainment = subjectCOA ? subjectCOA.attainment : 0;
     const updatedLevels = {

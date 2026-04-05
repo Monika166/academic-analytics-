@@ -16,7 +16,6 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from core.models import COMark
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -557,8 +556,7 @@ def save_co_marks(request):
                       "marks": mark_value,
                       "branch": branch,
                       "batch": batch,
-                      "semester": semester,
-                      "session": session,
+                      "semester": semester
     }
 )
 
@@ -763,7 +761,8 @@ def download_excel(request, branch, semester):
                 above_avg[co] += 1
 
     # 🔥 GET SUBJECT SESSION
-    subject_obj = Subject.objects.filter(subject_name=subject_name).first()
+    subject_obj = Subject.objects.filter(subject_name=subject_name,branch__iexact=branch,
+    semester=semester).first()
     session = subject_obj.session if subject_obj else None
     levels = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
 
@@ -790,7 +789,6 @@ def download_excel(request, branch, semester):
         else:
             level = 0
 
-        # ✅ Apply 0.9 multiplier
         final_attainment = round(0.9 * level, 2)
 
         co_attainment[co] = final_attainment
@@ -1217,16 +1215,40 @@ def course_attainment(request):
 
         # Group marks
         for m in marks:
-            key = (m.subject.subject_name, m.branch, m.semester)
+            key = (m.subject.subject_name, m.branch, m.semester, m.session)
             subject_data[key][f"CO{m.co_number}"].append(m.marks)
 
         results = []
 
-        for (subject, branch, semester), co_dict in subject_data.items():
+        for (subject, branch, semester, session), co_dict in subject_data.items():
+
+            attainment_list = []
+            level_list = []
+
+           # 🔥 GET TOTAL CO COUNT FROM CONFIG
+            co_configs = COConfiguration.objects.filter(
+            subject__subject_name=subject,
+            subject__branch__iexact=branch,
+            subject__semester=semester
+            )
+
+            total_co = co_configs.count()
 
             attainment_list = []
 
-            for co, marks_list in co_dict.items():
+            # 🔥 LOOP THROUGH ALL COs (NOT JUST EXISTING ONES)
+            for i in range(1, total_co + 1):
+                co_key = f"CO{i}"
+                marks_list = co_dict.get(co_key, [])
+                
+                
+
+                if not marks_list:
+                    # 🔥 VERY IMPORTANT: ADD ZERO IF NO DATA
+                    attainment_list.append(0)
+                    level_list.append(0)
+                    continue
+
                 total_students = len(marks_list)
                 avg = sum(marks_list) / total_students
 
@@ -1234,21 +1256,25 @@ def course_attainment(request):
 
                 percentage = (above_avg / total_students) * 100 if total_students else 0
 
-                # SAME LOGIC AS download_excel
-                # 🔥 GET SESSION FROM SUBJECT
-                subject_obj = Subject.objects.filter(subject_name=subject).first()
-                session = subject_obj.session if subject_obj else None
+                # 🔥 LEVEL FETCH (same as before)
+                subject_obj = Subject.objects.filter(
+                    subject_name=subject,
+                    branch__iexact=branch,
+                    semester=semester
+                ).first()
 
-            
-                # 🔥 APPLY LOGIC
-                
-                levels = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
+                session_val = session
+
+                levels = AttainmentLevel.objects.filter(session=session_val).order_by('-id').first()
+
                 if levels:
                     level1 = levels.level1
                     level2 = levels.level2
                     level3 = levels.level3
                 else:
                     level1, level2, level3 = 50, 60, 70
+
+                # 🔥 DISCRETE LEVEL LOGIC (CORRECT AS PER YOUR NOTEBOOK)
 
                 if percentage >= level3:
                     level = 3
@@ -1259,17 +1285,21 @@ def course_attainment(request):
                 else:
                     level = 0
 
-                # ✅ Apply 0.9 multiplier
-                attainment = round(0.9 * level, 2)
-                attainment_list.append(attainment)
+                course_attainment = round(0.9 * level, 2)
+                attainment_list.append(course_attainment)
+                level_list.append(level)
 
             final_attainment = sum(attainment_list) / len(attainment_list)
+            final_level = round(sum(level_list) / len(level_list)) if level_list else 0
+
 
             results.append({
                 "branch": branch,
                 "subject": subject,
                 "semester": semester,
-                "attainment": round(final_attainment, 2)
+                "session": session, 
+                "attainment": round(final_attainment, 2),
+                "level": final_level
             })
 
         return JsonResponse(results, safe=False)
@@ -1571,8 +1601,19 @@ def download_co_details(request):
     return response
 def get_sessions(request):
     try:
-        sessions = Subject.objects.values_list("session", flat=True).distinct()
-        return JsonResponse(list(sessions), safe=False)
+        from .models import Subject, AttainmentLevel
+
+        # 🔥 ALL sessions (from Subject)
+        subject_sessions = Subject.objects.values_list("session", flat=True)
+
+        # 🔥 sessions with attainment
+        attainment_sessions = AttainmentLevel.objects.values_list("session", flat=True)
+
+        # 🔥 MERGE + UNIQUE
+        all_sessions = set(subject_sessions) | set(attainment_sessions)
+
+        return JsonResponse(sorted(list(all_sessions)), safe=False)
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -1582,7 +1623,6 @@ import json
 
 @csrf_exempt
 def save_attainment(request):
-
     if request.method == "POST":
         try:
             data = json.loads(request.body)
@@ -1592,34 +1632,45 @@ def save_attainment(request):
             level2 = data.get("level2")
             level3 = data.get("level3")
 
-            AttainmentLevel.objects.create(
+            if not all([session, level1, level2, level3]):
+                return JsonResponse({"error": "All fields required"}, status=400)
+
+            # 🔥 THIS IS THE FIX (UPDATE INSTEAD OF CREATE)
+            obj, created = AttainmentLevel.objects.update_or_create(
                 session=session,
-                level1=level1,
-                level2=level2,
-                level3=level3
+                defaults={
+                    "level1": level1,
+                    "level2": level2,
+                    "level3": level3
+                }
             )
 
             return JsonResponse({"message": "Saved successfully"})
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-        
+    
 
 @csrf_exempt
 def get_attainment(request):
-    session = request.GET.get("session")
+    try:
+        session = request.GET.get("session")
 
-    if not session:
-        return JsonResponse({"exists": False})
+        if not session:
+            return JsonResponse({}, safe=False)
 
-    level = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
+        # ✅ FIX: always take latest entry
+        data = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
 
-    if not level:
-        return JsonResponse({"exists": False})
+        if not data:
+            return JsonResponse({}, safe=False)
 
-    return JsonResponse({
-        "exists": True,
-        "level1": level.level1,
-        "level2": level.level2,
-        "level3": level.level3,
-    })
+        return JsonResponse({
+            "level1": data.level1,
+            "level2": data.level2,
+            "level3": data.level3
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
