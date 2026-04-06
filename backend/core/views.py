@@ -1207,7 +1207,14 @@ def get_co_analytics(request):
 @csrf_exempt
 def course_attainment(request):
     try:
+        # ✅ GET SESSION FROM FRONTEND
+        session_param = request.GET.get("session")
+
         marks = COMark.objects.select_related("student", "subject")
+
+        # ✅ FILTER MARKS BY SESSION (IMPORTANT)
+        if session_param:
+            marks = marks.filter(session=session_param)
 
         from collections import defaultdict
 
@@ -1215,21 +1222,21 @@ def course_attainment(request):
 
         # Group marks
         for m in marks:
-            key = (m.subject.subject_name, m.branch, m.semester, m.session)
+            key = (m.subject.subject_name, m.branch, m.semester)
             subject_data[key][f"CO{m.co_number}"].append(m.marks)
 
         results = []
 
-        for (subject, branch, semester, session), co_dict in subject_data.items():
+        for (subject, branch, semester), co_dict in subject_data.items():
 
             attainment_list = []
             level_list = []
 
-           # 🔥 GET TOTAL CO COUNT FROM CONFIG
+            # 🔥 GET TOTAL CO COUNT FROM CONFIG
             co_configs = COConfiguration.objects.filter(
-            subject__subject_name=subject,
-            subject__branch__iexact=branch,
-            subject__semester=semester
+                subject__subject_name=subject,
+                subject__branch__iexact=branch,
+                subject__semester=semester
             )
 
             total_co = co_configs.count()
@@ -1240,8 +1247,6 @@ def course_attainment(request):
             for i in range(1, total_co + 1):
                 co_key = f"CO{i}"
                 marks_list = co_dict.get(co_key, [])
-                
-                
 
                 if not marks_list:
                     # 🔥 VERY IMPORTANT: ADD ZERO IF NO DATA
@@ -1256,14 +1261,18 @@ def course_attainment(request):
 
                 percentage = (above_avg / total_students) * 100 if total_students else 0
 
-                # 🔥 LEVEL FETCH (same as before)
+                # 🔥 LEVEL FETCH (SESSION FIX APPLIED)
                 subject_obj = Subject.objects.filter(
                     subject_name=subject,
                     branch__iexact=branch,
                     semester=semester
                 ).first()
 
-                session_val = session
+               
+               # ✅ ALWAYS TAKE LATEST ATTAINMENT SESSION (CORRECT SOURCE)
+                latest_session = AttainmentLevel.objects.order_by('-id').values_list('session', flat=True).first()
+
+                session_val = latest_session
 
                 levels = AttainmentLevel.objects.filter(session=session_val).order_by('-id').first()
 
@@ -1274,7 +1283,7 @@ def course_attainment(request):
                 else:
                     level1, level2, level3 = 50, 60, 70
 
-                # 🔥 DISCRETE LEVEL LOGIC (CORRECT AS PER YOUR NOTEBOOK)
+                # 🔥 DISCRETE LEVEL LOGIC (UNCHANGED)
 
                 if percentage >= level3:
                     level = 3
@@ -1292,15 +1301,27 @@ def course_attainment(request):
             final_attainment = sum(attainment_list) / len(attainment_list)
             final_level = round(sum(level_list) / len(level_list)) if level_list else 0
 
-
             results.append({
                 "branch": branch,
                 "subject": subject,
                 "semester": semester,
-                "session": session, 
+                "session": latest_session,  # ✅ FIXED
                 "attainment": round(final_attainment, 2),
                 "level": final_level
             })
+            # 🔥 IF NO DATA, STILL RETURN SUBJECT STRUCTURE
+        if not results:
+            subjects = Subject.objects.all()
+
+            for s in subjects:
+                results.append({
+                    "branch": s.branch,
+                    "subject": s.subject_name,
+                    "semester": s.semester,
+                    "session": latest_session,
+                    "attainment": 0,
+                    "level": 0
+        })
 
         return JsonResponse(results, safe=False)
 
