@@ -56,7 +56,7 @@ const PrincipalDashboard: React.FC = () => {
       setSavedData({
         level1,
         level2,
-        level3
+        level3,
       });
       setIsModifyMode(false);
       setShowSaved(false);
@@ -65,13 +65,17 @@ const PrincipalDashboard: React.FC = () => {
       setLevel2("");
       setLevel3("");
       setShowAttainment(false);
-      await fetchCOAData();  // 🔥 IMPORTANT
+      // 🔥 close modal first
+      setShowAttainment(false);
 
+      // 🔥 force refresh AFTER state update
+      setTimeout(() => {
+        fetchCOAData();
+      }, 200);
     } catch (err) {
       console.error(err);
       alert("Server error");
     }
-
   };
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
@@ -117,9 +121,13 @@ const PrincipalDashboard: React.FC = () => {
   const [showCOA, setShowCOA] = useState(false);
   const fetchCOAData = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+      const url = "http://127.0.0.1:8000/api/course-attainment/";
+
+      const res = await fetch(url);
       const data = await res.json();
+
       console.log("REFRESHED DATA:", data);
+
       setCoaData(data);
       setFilteredData(data);
     } catch (error) {
@@ -180,12 +188,17 @@ const PrincipalDashboard: React.FC = () => {
     const fetchAttainment = async () => {
       try {
         const res = await fetch(
-          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`
+          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`,
         );
 
         const data = await res.json();
 
-        if (data && data.level1 !== undefined && data.level2 !== undefined && data.level3 !== undefined) {
+        if (
+          data &&
+          data.level1 !== undefined &&
+          data.level2 !== undefined &&
+          data.level3 !== undefined
+        ) {
           setIsAlreadySet(true);
           setSavedData(data);
 
@@ -193,7 +206,6 @@ const PrincipalDashboard: React.FC = () => {
           setLevel1(data.level1);
           setLevel2(data.level2);
           setLevel3(data.level3);
-
         } else {
           setIsAlreadySet(false);
           setSavedData(null);
@@ -320,8 +332,10 @@ const PrincipalDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchCOAData();
-  }, []);
+    if (showCOA) {
+      fetchCOAData();
+    }
+  }, [showCOA]);
 
   const filteredStudents = students.filter((student) => {
     return (
@@ -460,8 +474,9 @@ const PrincipalDashboard: React.FC = () => {
               </div>
               <ChevronDown
                 size={14}
-                className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
-                  }`}
+                className={`transition-transform ${
+                  isDropdownOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -618,14 +633,18 @@ const PrincipalDashboard: React.FC = () => {
                 {/* IMPORT BUTTON */}
                 <div className="flex justify-end mt-4">
                   <button
-
                     onClick={() => {
                       if (filteredStudents.length === 0) {
                         alert("No students to export");
                         return;
                       }
 
-                      const headers = ["Name", "Registration No", "Branch", "Semester"];
+                      const headers = [
+                        "Name",
+                        "Registration No",
+                        "Branch",
+                        "Semester",
+                      ];
 
                       const rows = filteredStudents.map((s) => [
                         s.full_name,
@@ -645,7 +664,6 @@ const PrincipalDashboard: React.FC = () => {
                       a.href = url;
                       a.download = "Students_List.csv";
                       a.click();
-
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
@@ -796,7 +814,10 @@ const PrincipalDashboard: React.FC = () => {
           </div>
           {/* COA */}
           <div
-            onClick={() => setShowCOA(true)}
+            onClick={() => {
+              setShowCOA(true);
+              fetchCOAData(); // instant refresh
+            }}
             className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
           >
             <h3 className="text-slate-500 text-sm">Course Attainment</h3>
@@ -953,7 +974,7 @@ const PrincipalDashboard: React.FC = () => {
               <select
                 value={coBranch}
                 onChange={(e) => {
-                  setCoBranch(e.target.value);   // ✅ CORRECT
+                  setCoBranch(e.target.value); // ✅ CORRECT
                 }}
                 className="border px-4 py-2 rounded"
               >
@@ -1001,7 +1022,7 @@ const PrincipalDashboard: React.FC = () => {
                   .filter(
                     (s) =>
                       s.branch?.toUpperCase().trim() ===
-                      coBranch.toUpperCase().trim() &&
+                        coBranch.toUpperCase().trim() &&
                       s.semester.toString() === coSemester.toString(),
                   )
                   .map((s) => (
@@ -1045,8 +1066,7 @@ const PrincipalDashboard: React.FC = () => {
                     alert("Please select branch, semester and subject");
                     return;
                   }
-const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
-                  
+                  const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
 
                   window.open(url, "_blank");
                 }}
@@ -1198,7 +1218,7 @@ const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semes
 
                   // ✅ Get selected subject
                   const selectedSub = subjects.find(
-                    (s) => s.id == selectedSubjectId
+                    (s) => s.id == selectedSubjectId,
                   );
 
                   // ✅ Check subject
@@ -1211,7 +1231,9 @@ const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semes
                   const semester = selectedSub.semester;
 
                   // ✅ Encode subject (IMPORTANT)
-                  const encodedSubject = encodeURIComponent(selectedSub.subject_name);
+                  const encodedSubject = encodeURIComponent(
+                    selectedSub.subject_name,
+                  );
 
                   const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
 
@@ -1415,7 +1437,6 @@ const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semes
             {/* LEVEL INPUTS */}
             {selectedSession && (
               <div className="mt-4">
-
                 {/* 🔥 ALREADY SET */}
                 {isAlreadySet && !isModifyMode && !showSaved && (
                   <div className="space-y-4">
@@ -1474,7 +1495,6 @@ const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semes
 
                 {/* 🔥 CASE 1: SHOW SAVED VALUES */}
 
-
                 {/* 🔥 CASE 2: INPUT (NEW OR MODIFY) */}
                 {(!isAlreadySet || isModifyMode) && !showSaved && (
                   <div className="space-y-4">
@@ -1512,45 +1532,39 @@ const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semes
                     </button>
                   </div>
                 )}
-
-
-
               </div>
             )}
           </div>
         </div>
-      )
-      }
+      )}
 
       {/* ================= LOGOUT MODAL ================= */}
-      {
-        isLogoutModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40"></div>
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40"></div>
 
-            <div className="bg-white p-6 rounded-xl z-10 text-center">
-              <h3 className="font-bold mb-4">Confirm Logout</h3>
+          <div className="bg-white p-6 rounded-xl z-10 text-center">
+            <h3 className="font-bold mb-4">Confirm Logout</h3>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleLogoutConfirm}
-                  className="bg-blue-700 text-white px-4 py-2 rounded"
-                >
-                  Logout
-                </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleLogoutConfirm}
+                className="bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                Logout
+              </button>
 
-                <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="border px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-              </div>
+              <button
+                onClick={() => setIsLogoutModalOpen(false)}
+                className="border px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+    </div>
   );
 };
 
