@@ -106,3 +106,19 @@ class AttainmentLevel(models.Model):
 
     def __str__(self):
         return f"{self.session} - Levels"
+    
+class POPSO(models.Model):
+    TYPE_CHOICES = (
+        ('PO', 'PO'),
+        ('PSO', 'PSO'),
+    )
+
+    type = models.CharField(max_length=5, choices=TYPE_CHOICES)
+    code = models.CharField(max_length=10)
+    description = models.TextField()
+
+    branch = models.CharField(max_length=50)
+    session = models.CharField(max_length=20)
+
+    def __str__(self):
+        return f"{self.code} - {self.branch}"
