@@ -527,7 +527,6 @@ def get_subjects_for_co(request):
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 @csrf_exempt
-@csrf_exempt
 def save_co_marks(request):
     if request.method == "POST":
         try:
@@ -602,6 +601,7 @@ def get_co_marks(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "POST only"}, status=405)
+
 @csrf_exempt
 def get_branch_semester(request):
     faculty_id = request.GET.get("faculty_id")
@@ -746,8 +746,14 @@ def download_excel(request, branch, semester):
     # =========================
 
     co_avg = {}
+    co_has_data = {}
     for co in co_list:
-        if student_count > 0:
+        #check if any non-zero marks exist
+        has_real_data = any(student.get(co, 0) > 0 for student in students.values())
+
+        co_has_data[co] = has_real_data
+        if student_count > 0 and has_real_data:
+
             co_avg[co] = round(co_totals[co] / student_count, 2)
         else:
             co_avg[co] = 0
@@ -757,6 +763,9 @@ def download_excel(request, branch, semester):
     
     for student in students.values():
         for co in co_list:
+             # skip fake CO (all zero case)
+            if not co_has_data[co]:
+                continue
             if student.get(co, 0) >= co_avg[co]:
                 above_avg[co] += 1
 
@@ -779,6 +788,10 @@ def download_excel(request, branch, semester):
 
     
     for co in co_list:
+         #  handle no real data
+        if not co_has_data[co]:
+            co_attainment[co] = 0
+            continue
         percentage = (above_avg[co] / student_count) * 100 if student_count else 0
         if percentage >= level3:
             level = 3
@@ -1243,13 +1256,12 @@ def course_attainment(request):
 
             attainment_list = []
 
-            # 🔥 LOOP THROUGH ALL COs (NOT JUST EXISTING ONES)
+            #  LOOP THROUGH ALL COs (NOT JUST EXISTING ONES)
             for i in range(1, total_co + 1):
                 co_key = f"CO{i}"
                 marks_list = co_dict.get(co_key, [])
-
-                if not marks_list:
-                    # 🔥 VERY IMPORTANT: ADD ZERO IF NO DATA
+#  HANDLE EMPTY OR ALL-ZERO MARKS
+                if not marks_list or all(m == 0 for m in marks_list):
                     attainment_list.append(0)
                     level_list.append(0)
                     continue
@@ -1305,11 +1317,11 @@ def course_attainment(request):
                 "branch": branch,
                 "subject": subject,
                 "semester": semester,
-                "session": latest_session,  # ✅ FIXED
+                "session": latest_session,  #  FIXED
                 "attainment": round(final_attainment, 2),
                 "level": final_level
             })
-            # 🔥 IF NO DATA, STILL RETURN SUBJECT STRUCTURE
+            #  IF NO DATA, STILL RETURN SUBJECT STRUCTURE
         if not results:
             subjects = Subject.objects.all()
 
@@ -1409,7 +1421,31 @@ def get_subjects_with_co(request):
 
             data = []
             for sub in subjects:
-                has_marks = COMark.objects.filter(subject=sub).exists()
+                total_cos = COConfiguration.objects.filter(subject=sub).count()
+
+                filled_cos = COMark.objects.filter(
+                    subject=sub,
+                    marks__gt=0   #  ONLY COUNT REAL FILLED MARKS
+                ).values('co_number').distinct().count()
+                # 🔥 GET ALL CO NUMBERS
+                all_cos = list(
+                    COConfiguration.objects.filter(subject=sub)
+                    .values_list("co_number", flat=True)
+)
+
+# 🔥 GET FILLED CO NUMBERS (marks > 0)
+                filled_cos_list = list(
+                    COMark.objects.filter(subject=sub, marks__gt=0)
+                    .values_list("co_number", flat=True)
+                    .distinct()
+)
+
+# 🔥 FIND MISSING COs
+                missing_cos = [co for co in all_cos if co not in filled_cos_list]
+
+                all_filled = (total_cos > 0 and total_cos == filled_cos)
+                has_marks = filled_cos > 0
+                
 
                 data.append({
                     "id": sub.id,
@@ -1419,7 +1455,9 @@ def get_subjects_with_co(request):
                     "semester": sub.semester,
                     "batch": sub.batch,
                     "session": sub.session,
-                    "has_marks": has_marks
+                    "has_marks": has_marks,
+                    "all_marks_filled": all_filled,
+                    "missing_cos": missing_cos
                 })
 
             return JsonResponse({"subjects": data}, status=200)
@@ -1554,12 +1592,36 @@ def add_co_single(request):
             ).exists():
                 return JsonResponse({"error": "CO already exists"}, status=400)
 
-            COConfiguration.objects.create(
+            co=COConfiguration.objects.create(
                 subject=subject,
-                faculty=faculty,   # 🔥 IMPORTANT
+                faculty=faculty,   # IMPORTANT
                 co_number=co_number,
                 statement=statement
             )
+            # 🔥 ADD DEFAULT MARKS FOR NEW CO
+
+            existing_marks = COMark.objects.filter(subject=subject)
+
+            students_data = existing_marks.values(
+                "student", "branch", "semester", "session"
+            ).distinct()
+
+            new_marks = []
+
+            for data in students_data:
+                new_marks.append(
+                    COMark(
+                        student_id=data["student"],
+                        subject=subject,
+                        co_number=co.co_number,
+                        marks=0,
+                        branch=data["branch"],
+                        semester=data["semester"],
+                        session=data["session"],
+        )
+    )
+
+            COMark.objects.bulk_create(new_marks)
 
             return JsonResponse({"message": "CO added successfully"})
 
@@ -1575,12 +1637,35 @@ def delete_co(request):
             faculty_id = data.get("faculty_id")
 
             co = COConfiguration.objects.get(id=co_id)
+            subject = co.subject
+            co_number = co.co_number
 
             # ✅ SECURITY: only owner can delete
             if str(co.faculty_id) != str(faculty_id):
                 return JsonResponse({"error": "Unauthorized"}, status=403)
 
+            # delete config
             co.delete()
+
+            #  delete related marks
+            COMark.objects.filter(
+                subject=subject,
+                co_number=co_number
+).delete()
+            # 🔥 REORDER CO NUMBERS
+            remaining_cos = COConfiguration.objects.filter(subject=subject).order_by('co_number')
+
+            for index, c in enumerate(remaining_cos, start=1):
+                if c.co_number != index:
+                    old_number = c.co_number
+                    c.co_number = index
+                    c.save()
+
+                #  ALSO UPDATE MARKS
+                    COMark.objects.filter(
+                        subject=subject,
+                        co_number=old_number
+                    ).update(co_number=index)
 
             return JsonResponse({"message": "Deleted successfully"})
 

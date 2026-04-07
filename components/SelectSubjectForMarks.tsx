@@ -43,8 +43,8 @@ export default function SelectSubjectForMarks() {
     }
 
     // 🔥 NEW CHECK
-    if (selected.has_marks) {
-      alert("CO marks already added");
+    if (selected.all_marks_filled) {
+      alert("All CO marks already filled");
       return;
     }
 
@@ -60,7 +60,7 @@ export default function SelectSubjectForMarks() {
       },
     });
   };
-  const isMarksExists = selected ? selected.has_marks : false;
+  const isMarksExists = selected ? selected.all_marks_filled : false;
   return (
     <div className="min-h-screen flex justify-center items-center bg-gray-50">
       <div className="absolute top-6 left-6">
@@ -89,6 +89,12 @@ export default function SelectSubjectForMarks() {
             </option>
           ))}
         </select>
+        {selected && selected.missing_cos?.length > 0 && (
+          <p className="text-red-500 text-sm mb-3">
+            Missing CO:{" "}
+            {selected.missing_cos.map((co: number) => `CO${co}`).join(", ")}
+          </p>
+        )}
 
         <button
           onClick={handleNext}
