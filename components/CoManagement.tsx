@@ -198,7 +198,7 @@ const CoManagement = () => {
                     </button>
                   )}
 
-                  <p className="font-semibold">CO {co.co_number}</p>
+                  <p className="font-semibold">CO {index + 1}</p>
 
                   {isEditing ? (
                     <input

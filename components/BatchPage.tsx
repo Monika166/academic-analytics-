@@ -16,6 +16,7 @@ export default function BatchPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [marks, setMarks] = useState<any>({});
   const [coList, setCoList] = useState<any[]>([]);
+  const [existingMarks, setExistingMarks] = useState<any>({});
 
   // ✅ Fetch Students (POST)
   useEffect(() => {
@@ -40,6 +41,40 @@ export default function BatchPage() {
         setStudents(data.students);
       });
   }, [branch, batch, semester, session]);
+  useEffect(() => {
+    if (!subject_id || !branch) return;
+
+    const fetchMarks = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/get-co-marks/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            subject_id,
+            branch,
+          }),
+        });
+
+        const data = await res.json();
+
+        // 🔥 Convert to easy lookup
+        const map: any = {};
+
+        data.forEach((item: any) => {
+          const key = `${item.reg_no}_CO${item.co_number}`;
+          map[key] = item.marks;
+        });
+
+        setExistingMarks(map);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchMarks();
+  }, [subject_id, branch]);
   useEffect(() => {
     if (!subject_id) return;
 
@@ -160,17 +195,26 @@ export default function BatchPage() {
                   {student.registration_number}
                 </td>
 
-                {coList.map((co) => (
-                  <td key={co.co_number} className="border px-4 py-2">
-                    <input
-                      type="number"
-                      className="border p-1 w-20"
-                      onChange={(e) =>
-                        handleChange(student.id, co.co_number, e.target.value)
-                      }
-                    />
-                  </td>
-                ))}
+                {coList.map((co) => {
+                  const key = `${student.registration_number}_CO${co.co_number}`;
+                  const isFilled = existingMarks[key] && existingMarks[key] > 0;
+
+                  return (
+                    <td key={co.co_number} className="border px-4 py-2">
+                      <input
+                        type="number"
+                        className={`border p-1 w-20 ${
+                          isFilled ? "bg-gray-200 cursor-not-allowed" : ""
+                        }`}
+                        disabled={isFilled}
+                        defaultValue={isFilled ? existingMarks[key] : ""}
+                        onChange={(e) =>
+                          handleChange(student.id, co.co_number, e.target.value)
+                        }
+                      />
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
