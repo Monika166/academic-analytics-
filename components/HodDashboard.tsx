@@ -83,30 +83,30 @@ const HodDashboard: React.FC = () => {
   const semesters = ["all", "1", "2", "3", "4", "5", "6", "7", "8"];
   const handleViewCO = async (subject: any) => {
     try {
-      // ✅ Fetch levels FIRST
+      //  Fetch levels FIRST
       setLevels({
         level1: 50,
         level2: 60,
         level3: 70,
       });
       const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-const allData = await coaRes.json();
+      const allData = await coaRes.json();
 
-// 🔥 FILTER ONLY HOD BRANCH DATA
-const subjectCOA = allData.find((item: any) => {
-  return (
-    item.subject?.toLowerCase().trim() === subject.subject_name?.toLowerCase().trim() &&
-    item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
-    Number(item.semester) === Number(subject.semester) &&
-    item.session === subject.session
-  );
-});
+      //  FILTER ONLY HOD BRANCH DATA
+      const subjectCOA = allData.find((item: any) => {
+        return (
+          item.subject?.toLowerCase().trim() === subject.subject_name?.toLowerCase().trim() &&
+          item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
+          Number(item.semester) === Number(subject.semester) &&
+          item.session === subject.session
+        );
+      });
 
-      
+
 
       setBackendAttainment(subjectCOA ? subjectCOA.attainment : 0);
 
-      // ✅ THEN open modal
+      //  THEN open modal
       setSelectedSubject(subject);
       setCoData(subject.co_data || []);
 
@@ -138,13 +138,13 @@ const subjectCOA = allData.find((item: any) => {
     const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
     const allData = await coaRes.json();
 
-const subjectCOA = allData.find((item: any) => {
-  return (
-    item.subject?.toLowerCase().trim() === selectedSubject.subject_name?.toLowerCase().trim() &&
-    item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
-    Number(item.semester) === Number(selectedSubject.semester) 
-  );
-});
+    const subjectCOA = allData.find((item: any) => {
+      return (
+        item.subject?.toLowerCase().trim() === selectedSubject.subject_name?.toLowerCase().trim() &&
+        item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
+        Number(item.semester) === Number(selectedSubject.semester)
+      );
+    });
 
     // find current subject data
 
@@ -159,7 +159,7 @@ const subjectCOA = allData.find((item: any) => {
 
     const coNumbers = coData.map((co: any) => co.co_number);
 
-    
+
 
     const avgAttainment = backendAttainment;
     // ===== HEADER =====
@@ -217,7 +217,7 @@ const subjectCOA = allData.find((item: any) => {
     a.href = url;
     a.download = "co_report.csv";
 
-    document.body.appendChild(a); // 🔥 IMPORTANT
+    document.body.appendChild(a); //  IMPORTANT
     a.click();
     document.body.removeChild(a);
   };
@@ -347,10 +347,17 @@ const subjectCOA = allData.find((item: any) => {
 
             <button
               onClick={() => navigate("/hod-add-student")}
-              className="bg-white border border-slate-200 px-6 py-3 rounded-xl hover:bg-slate-50 transition flex items-center gap-2"
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center gap-2"
             >
               <Plus size={18} />
               Add Student
+            </button>
+            <button
+              onClick={() => navigate("/add-po-pso")}
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Add PO/PSO
             </button>
           </div>
         </div>

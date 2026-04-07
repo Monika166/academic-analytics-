@@ -18,6 +18,7 @@ import HodSubjectDetails from "./components/HodSubjectDetails";
 import CoDetails from "./components/CoDetails";
 import SelectSubjectForMarks from "./components/SelectSubjectForMarks";
 import CoManagement from "./components/CoManagement";
+import AddPOPSO from "./components/AddPOPSO";
 const App = () => {
   return (
     <Router>
@@ -41,6 +42,7 @@ const App = () => {
         <Route path="/principal-dashboard" element={<PrincipalDashboard />} />
         <Route path="/co-details" element={<CoDetails />} />
         <Route path="/co-management" element={<CoManagement />} />
+        <Route path="/add-po-pso" element={<AddPOPSO />} />
 
         <Route
           path="/select-subject-marks"
