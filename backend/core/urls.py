@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 from django.http import JsonResponse
+from .views import save_po_pso
+
 
 urlpatterns = [
     path('test-api/', lambda request: JsonResponse({"ok": True})),
@@ -43,4 +45,6 @@ path('download-co-pdf/', views.download_co_pdf),
 path('sessions/', views.get_sessions),
 path('save-attainment/', views.save_attainment),
 path('get-attainment/', views.get_attainment),
+path('save-po-pso/', views.save_po_pso),
+
 ]

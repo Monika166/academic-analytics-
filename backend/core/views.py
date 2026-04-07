@@ -2,7 +2,7 @@ from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty, Subject, Student, CourseOutcome, COMark, AttainmentLevel
+from .models import Faculty, Subject, Student, CourseOutcome, COMark, AttainmentLevel, POPSO
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import csv
@@ -16,6 +16,7 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from .models import POPSO
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -1779,4 +1780,52 @@ def get_attainment(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
+
+@csrf_exempt
+def save_po_pso(request):
+    if request.method in ["POST", "PUT"]:
+        try:
+            data = json.loads(request.body)
+
+            print("DATA RECEIVED:", data)
+
+            branch = "CSE"   # TEMP (later replace with user branch)
+            session = data.get("session")
+            pos = data.get("pos", [])
+            psos = data.get("psos", [])
+
+            if not session:
+                return JsonResponse({"error": "Session required"}, status=400)
+
+            #  delete old records
+            POPSO.objects.filter(branch=branch, session=session).delete()
+
+            # Save PO
+            for i, po in enumerate(pos):
+                if po.strip():
+                    POPSO.objects.create(
+                        type="PO",
+                        code=f"PO{i+1}",
+                        description=po,
+                        branch=branch,
+                        session=session
+                    )
+
+            # Save PSO
+            for i, pso in enumerate(psos):
+                if pso.strip():
+                    POPSO.objects.create(
+                        type="PSO",
+                        code=f"PSO{i+1}",
+                        description=pso,
+                        branch=branch,
+                        session=session
+                    )
+
+            return JsonResponse({"message": "Saved successfully"})
+
+        except Exception as e:
+            print("ERROR:", str(e))
+            return JsonResponse({"error": str(e)}, status=500)
