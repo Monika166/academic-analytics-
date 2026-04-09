@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   GraduationCap,
   User,
@@ -23,6 +24,12 @@ const PrincipalDashboard: React.FC = () => {
   const [savedData, setSavedData] = useState<any>(null);
   const [showSaved, setShowSaved] = useState(false);
   const [isModifyMode, setIsModifyMode] = useState(false);
+  const [showPOPSOModal, setShowPOPSOModal] = useState(false);
+  const [poList, setPOList] = useState([]);
+  const [psoList, setPSOList] = useState([]);
+  const [hodName, setHodName] = useState("");
+  const [psoSession, setPsoSession] = useState("");
+
   const handleSaveAttainment = async () => {
     if (!selectedSession || !level1 || !level2 || !level3) {
       alert("Please fill all fields");
@@ -56,7 +63,7 @@ const PrincipalDashboard: React.FC = () => {
       setSavedData({
         level1,
         level2,
-        level3,
+        level3
       });
       setIsModifyMode(false);
       setShowSaved(false);
@@ -65,17 +72,13 @@ const PrincipalDashboard: React.FC = () => {
       setLevel2("");
       setLevel3("");
       setShowAttainment(false);
-      // 🔥 close modal first
-      setShowAttainment(false);
+      await fetchCOAData();  //  IMPORTANT
 
-      // 🔥 force refresh AFTER state update
-      setTimeout(() => {
-        fetchCOAData();
-      }, 200);
     } catch (err) {
       console.error(err);
       alert("Server error");
     }
+
   };
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
@@ -119,15 +122,12 @@ const PrincipalDashboard: React.FC = () => {
   const [showCODetails, setShowCODetails] = useState(false);
   const [coaData, setCoaData] = useState<COAType[]>([]);
   const [showCOA, setShowCOA] = useState(false);
+
   const fetchCOAData = async () => {
     try {
-      const url = "http://127.0.0.1:8000/api/course-attainment/";
-
-      const res = await fetch(url);
+      const res = await fetch("http://127.0.0.1:8000/api/course-attainment/");
       const data = await res.json();
-
       console.log("REFRESHED DATA:", data);
-
       setCoaData(data);
       setFilteredData(data);
     } catch (error) {
@@ -168,7 +168,9 @@ const PrincipalDashboard: React.FC = () => {
 
   // COA FILTER (keep your existing one)
   const [branch, setBranch] = useState("");
+  const [psoBranch, setPsoBranch] = useState("");
   const [semester, setSemester] = useState("");
+
   useEffect(() => {
     const fetchCO = async () => {
       if (!coBranch || !coSemester || !coSubject) return;
@@ -182,35 +184,32 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchCO();
   }, [coBranch, coSemester, coSubject]);
+
   useEffect(() => {
     if (!selectedSession) return;
 
     const fetchAttainment = async () => {
       try {
         const res = await fetch(
-          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`,
+          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`
         );
 
         const data = await res.json();
 
-        if (
-          data &&
-          data.level1 !== undefined &&
-          data.level2 !== undefined &&
-          data.level3 !== undefined
-        ) {
+        if (data && data.level1 !== undefined && data.level2 !== undefined && data.level3 !== undefined) {
           setIsAlreadySet(true);
           setSavedData(data);
 
-          // 🔥 ADD THESE 3 LINES (VERY IMPORTANT)
+          //  ADD THESE 3 LINES (VERY IMPORTANT)
           setLevel1(data.level1);
           setLevel2(data.level2);
           setLevel3(data.level3);
+
         } else {
           setIsAlreadySet(false);
           setSavedData(null);
 
-          // 🔥 ALSO CLEAR INPUTS FOR NEW SESSION
+          //  ALSO CLEAR INPUTS FOR NEW SESSION
           setLevel1("");
           setLevel2("");
           setLevel3("");
@@ -222,6 +221,9 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchAttainment();
   }, [selectedSession]);
+
+  
+
   useEffect(() => {
     let filtered = coaData;
 
@@ -244,6 +246,7 @@ const PrincipalDashboard: React.FC = () => {
   useEffect(() => {
     fetchCOAnalytics();
   }, [selectedSubjectId]);
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -257,6 +260,8 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchStats();
   }, []);
+
+
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -270,6 +275,8 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchSessions();
   }, []);
+
+  
 
   useEffect(() => {
     const name = localStorage.getItem("faculty_name");
@@ -332,10 +339,8 @@ const PrincipalDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (showCOA) {
-      fetchCOAData();
-    }
-  }, [showCOA]);
+    fetchCOAData();
+  }, []);
 
   const filteredStudents = students.filter((student) => {
     return (
@@ -474,9 +479,8 @@ const PrincipalDashboard: React.FC = () => {
               </div>
               <ChevronDown
                 size={14}
-                className={`transition-transform ${
-                  isDropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -633,18 +637,14 @@ const PrincipalDashboard: React.FC = () => {
                 {/* IMPORT BUTTON */}
                 <div className="flex justify-end mt-4">
                   <button
+
                     onClick={() => {
                       if (filteredStudents.length === 0) {
                         alert("No students to export");
                         return;
                       }
 
-                      const headers = [
-                        "Name",
-                        "Registration No",
-                        "Branch",
-                        "Semester",
-                      ];
+                      const headers = ["Name", "Registration No", "Branch", "Semester"];
 
                       const rows = filteredStudents.map((s) => [
                         s.full_name,
@@ -664,6 +664,7 @@ const PrincipalDashboard: React.FC = () => {
                       a.href = url;
                       a.download = "Students_List.csv";
                       a.click();
+
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
@@ -814,10 +815,7 @@ const PrincipalDashboard: React.FC = () => {
           </div>
           {/* COA */}
           <div
-            onClick={() => {
-              setShowCOA(true);
-              fetchCOAData(); // instant refresh
-            }}
+            onClick={() => setShowCOA(true)}
             className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
           >
             <h3 className="text-slate-500 text-sm">Course Attainment</h3>
@@ -830,6 +828,15 @@ const PrincipalDashboard: React.FC = () => {
           >
             <h3 className="text-slate-500 text-sm">Attainment Level</h3>
             <p className="text-3xl font-bold text-blue-700 mt-2">Set</p>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <p className="text-sm text-slate-500">PO & PSO</p>
+            <button
+              onClick={() => setShowPOPSOModal(true)}
+              className="text-blue-600 text-xl font-semibold mt-2"
+            >
+              View
+            </button>
           </div>
         </div>
       </div>
@@ -974,7 +981,7 @@ const PrincipalDashboard: React.FC = () => {
               <select
                 value={coBranch}
                 onChange={(e) => {
-                  setCoBranch(e.target.value); // ✅ CORRECT
+                  setCoBranch(e.target.value);   // ✅ CORRECT
                 }}
                 className="border px-4 py-2 rounded"
               >
@@ -1022,7 +1029,7 @@ const PrincipalDashboard: React.FC = () => {
                   .filter(
                     (s) =>
                       s.branch?.toUpperCase().trim() ===
-                        coBranch.toUpperCase().trim() &&
+                      coBranch.toUpperCase().trim() &&
                       s.semester.toString() === coSemester.toString(),
                   )
                   .map((s) => (
@@ -1067,6 +1074,7 @@ const PrincipalDashboard: React.FC = () => {
                     return;
                   }
                   const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
+
 
                   window.open(url, "_blank");
                 }}
@@ -1171,7 +1179,7 @@ const PrincipalDashboard: React.FC = () => {
                     </tr>
                   ))}
 
-                  {/* 🔥 AVERAGE ROW */}
+                  {/*  AVERAGE ROW */}
                   {coAnalyticsData.length > 0 && (
                     <tr className="bg-blue-50 font-semibold">
                       <td className="px-4 py-2" colSpan={2}></td>
@@ -1187,7 +1195,7 @@ const PrincipalDashboard: React.FC = () => {
                     </tr>
                   )}
 
-                  {/* 🔥 STUDENTS ≥ AVG ROW */}
+                  {/* STUDENTS ≥ AVG ROW */}
                   {coAnalyticsData.length > 0 && (
                     <tr className="bg-green-50 font-semibold">
                       <td className="px-4 py-2" colSpan={2}></td>
@@ -1210,30 +1218,28 @@ const PrincipalDashboard: React.FC = () => {
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => {
-                  // ✅ Check branch
+                  //  Check branch
                   if (!selectedCOBranch) {
                     alert("Please select branch");
                     return;
                   }
 
-                  // ✅ Get selected subject
+                  //  Get selected subject
                   const selectedSub = subjects.find(
-                    (s) => s.id == selectedSubjectId,
+                    (s) => s.id == selectedSubjectId
                   );
 
-                  // ✅ Check subject
+                  // Check subject
                   if (!selectedSub) {
                     alert("Please select subject");
                     return;
                   }
 
-                  // ✅ Correct semester
+                  //  Correct semester
                   const semester = selectedSub.semester;
 
-                  // ✅ Encode subject (IMPORTANT)
-                  const encodedSubject = encodeURIComponent(
-                    selectedSub.subject_name,
-                  );
+                  //  Encode subject (IMPORTANT)
+                  const encodedSubject = encodeURIComponent(selectedSub.subject_name);
 
                   const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
 
@@ -1414,7 +1420,7 @@ const PrincipalDashboard: React.FC = () => {
 
                   setSelectedSession(session);
 
-                  // 🔥 RESET EVERYTHING (THIS IS KEY)
+                  //  RESET EVERYTHING (THIS IS KEY)
                   setShowSaved(false);
                   setIsModifyMode(false);
                   setSavedData(null);
@@ -1437,7 +1443,8 @@ const PrincipalDashboard: React.FC = () => {
             {/* LEVEL INPUTS */}
             {selectedSession && (
               <div className="mt-4">
-                {/* 🔥 ALREADY SET */}
+
+                {/*  ALREADY SET */}
                 {isAlreadySet && !isModifyMode && !showSaved && (
                   <div className="space-y-4">
                     <p className="text-green-600 font-semibold">
@@ -1475,7 +1482,7 @@ const PrincipalDashboard: React.FC = () => {
                   </div>
                 )}
 
-                {/* 🔥 SEE SAVED */}
+                {/*  SEE SAVED */}
                 {showSaved && savedData && (
                   <div className="space-y-3">
                     <p className="font-semibold">Saved Values:</p>
@@ -1493,9 +1500,10 @@ const PrincipalDashboard: React.FC = () => {
                   </div>
                 )}
 
-                {/* 🔥 CASE 1: SHOW SAVED VALUES */}
+                {/*  CASE 1: SHOW SAVED VALUES */}
 
-                {/* 🔥 CASE 2: INPUT (NEW OR MODIFY) */}
+
+                {/*  CASE 2: INPUT (NEW OR MODIFY) */}
                 {(!isAlreadySet || isModifyMode) && !showSaved && (
                   <div className="space-y-4">
                     <p className="font-semibold">Enter Levels of Attainment</p>
@@ -1523,7 +1531,7 @@ const PrincipalDashboard: React.FC = () => {
                       placeholder="Level 3"
                       className="w-full border px-4 py-2 rounded"
                     />
-                    {/* ✅ MOVE SAVE BUTTON HERE */}
+                    {/*  MOVE SAVE BUTTON HERE */}
                     <button
                       onClick={handleSaveAttainment}
                       className="bg-blue-700 text-white px-4 py-2 rounded"
@@ -1532,39 +1540,48 @@ const PrincipalDashboard: React.FC = () => {
                     </button>
                   </div>
                 )}
+
+
+
               </div>
             )}
+
+
           </div>
         </div>
-      )}
+      )
+      }
 
+      
       {/* ================= LOGOUT MODAL ================= */}
-      {isLogoutModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40"></div>
+      {
+        isLogoutModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40"></div>
 
-          <div className="bg-white p-6 rounded-xl z-10 text-center">
-            <h3 className="font-bold mb-4">Confirm Logout</h3>
+            <div className="bg-white p-6 rounded-xl z-10 text-center">
+              <h3 className="font-bold mb-4">Confirm Logout</h3>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleLogoutConfirm}
-                className="bg-blue-700 text-white px-4 py-2 rounded"
-              >
-                Logout
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleLogoutConfirm}
+                  className="bg-blue-700 text-white px-4 py-2 rounded"
+                >
+                  Logout
+                </button>
 
-              <button
-                onClick={() => setIsLogoutModalOpen(false)}
-                className="border px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="border px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

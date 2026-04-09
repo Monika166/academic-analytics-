@@ -86,6 +86,7 @@ class COMark(models.Model):
     branch = models.CharField(max_length=50)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    
 class COConfiguration(models.Model):
     subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
     faculty = models.ForeignKey("Faculty", on_delete=models.CASCADE, null=True) 
@@ -122,3 +123,12 @@ class POPSO(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.branch}"
+
+class COPSOMap(models.Model):
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    co = models.ForeignKey(COConfiguration, on_delete=models.CASCADE)
+
+    po_mapping = models.JSONField()
+    pso_mapping = models.JSONField()
+
+    created_at = models.DateTimeField(auto_now_add=True)

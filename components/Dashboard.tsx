@@ -35,6 +35,30 @@ const Dashboard: React.FC = () => {
   const location = useLocation();
   const [coList, setCoList] = useState<CourseOutcome[]>([]);
   const [branchSemesterList, setBranchSemesterList] = useState<any[]>([]);
+  const [showPOPSOModal, setShowPOPSOModal] = useState(false);
+  const [branch, setBranch] = useState("");
+  const [sessions, setSessions] = useState<string[]>([]);
+  const [session, setSession] = useState("");
+  const [poList, setPoList] = useState([]);
+  const [psoList, setPsoList] = useState([]);
+  const [branches, setBranches] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/get-branches/")
+      .then((res) => res.json())
+      .then((data) => {
+        setBranches(data);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (branch) {
+      fetch(`http://127.0.0.1:8000/api/get-po-pso-sessions/?branch=${branch}`)
+        .then((res) => res.json())
+        .then((data) => setSessions(data));
+    }
+  }, [branch]);
+
   useEffect(() => {
     const name = localStorage.getItem("faculty_name");
     const id = localStorage.getItem("faculty_id");
@@ -55,6 +79,7 @@ const Dashboard: React.FC = () => {
       setCoList([location.state as CourseOutcome]);
     }
   }, [location.state]);
+
   useEffect(() => {
     const facultyId = localStorage.getItem("faculty_id");
 
@@ -65,6 +90,26 @@ const Dashboard: React.FC = () => {
       })
       .catch((err) => console.error(err));
   }, [location]);
+
+  const fetchPOPSO = async (selectedSession: string) => {
+    setSession(selectedSession);
+
+    if (!branch || !selectedSession) return;
+
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/get-po-pso/?branch=${branch}&session=${selectedSession}`
+      );
+
+      const data = await res.json();
+
+      setPoList(data.po || []);
+      setPsoList(data.pso || []);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleLogoutConfirm = () => {
     localStorage.removeItem("faculty_name");
@@ -178,11 +223,13 @@ const Dashboard: React.FC = () => {
               onClick={() => navigate("/select-subject-marks")}
               className="bg-blue-600 text-white px-5 py-2 rounded-lg"
             >
-              + Add CO Marks
+              Add CO Marks
             </button>
-            <button className="bg-white border border-slate-200 hover:border-blue-700 hover:text-blue-700 text-slate-700 font-bold px-6 py-3 rounded-xl shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
-              <Activity size={20} />
-              <span>View Activity</span>
+            <button
+              onClick={() => setShowPOPSOModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+            >
+              View PO/PSO
             </button>
           </div>
         </div>
@@ -240,7 +287,17 @@ const Dashboard: React.FC = () => {
                       )
                     }
                   >
-                    Download Excel
+                    Download CO Attainment
+                  </button>
+                  <button
+                    className="mt-2 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+                    onClick={() =>
+                      window.open(
+                        `http://127.0.0.1:8000/api/download-mapping-excel/?branch=${item.branch}&session=${item.session}&subject=${item.subject}&subject_id=${item.subject_id}`
+                      )
+                    }
+                  >
+                    Download CO-PO-PSO Mapping
                   </button>
                 </div>
               </div>
@@ -287,6 +344,134 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {showPOPSOModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-[600px] max-h-[80vh] overflow-y-auto relative">
+
+            {/* CLOSE */}
+            <button
+              onClick={() => setShowPOPSOModal(false)}
+              className="absolute top-2 right-3 text-xl"
+            >
+              ×
+            </button>
+
+            {/* HEADING */}
+            <h2 className="text-xl font-bold text-center mb-4">
+              PO PSO Details
+            </h2>
+
+
+
+            <div className="flex gap-2 mb-4">
+
+              {/* BRANCH DROPDOWN */}
+              <select
+                value={branch}
+                onChange={(e) => {
+                  setBranch(e.target.value);
+                  setSession("");
+                  setPoList([]);
+                  setPsoList([]);
+                }}
+                className="w-1/2 border p-2 rounded"
+              >
+                <option value="">Select Branch</option>
+                {branches.map((b, i) => (
+                  <option key={i} value={b}>{b}</option>
+                ))}
+              </select>
+
+              {/* SESSION DROPDOWN */}
+              <select
+                value={session}
+                onChange={(e) => fetchPOPSO(e.target.value)}
+                className="w-1/2 border p-2 rounded"
+              >
+                <option value="">Select Session</option>
+                {sessions.map((s, i) => (
+                  <option key={i} value={s}>{s}</option>
+                ))}
+              </select>
+
+            </div>
+
+            {/* PO LIST */}
+            {/* PO TABLE */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Program Outcomes</h3>
+
+              <div className="border rounded overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border px-2 py-1">Code</th>
+                      <th className="border px-2 py-1">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {poList?.length > 0 ? (
+                      poList.map((po: any, i) => (
+                        <tr key={i}>
+                          <td className="border px-2 py-1 text-center">{po.code}</td>
+                          <td className="border px-2 py-1">{po.description}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={2} className="text-center py-2">No POs found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* PSO LIST */}
+            {/* PSO TABLE */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Program Specific Outcomes</h3>
+
+              <div className="border rounded overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border px-2 py-1">Code</th>
+                      <th className="border px-2 py-1">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {psoList?.length > 0 ? (
+                      psoList.map((pso: any, i) => (
+                        <tr key={i}>
+                          <td className="border px-2 py-1 text-center">{pso.code}</td>
+                          <td className="border px-2 py-1">{pso.description}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={2} className="text-center py-2">No PSOs found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {/* DOWNLOAD */}
+            <button
+              onClick={() => {
+                window.open(
+                  `http://127.0.0.1:8000/api/download-po-pso-pdf/?branch=${branch}&session=${session}`
+                );
+              }}
+              className="bg-green-600 text-white px-3 py-1.5 rounded text-sm mt-2 w-fit mx-auto block"
+            >
+              Download PDF
+            </button>
+
           </div>
         </div>
       )}
