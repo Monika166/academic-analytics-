@@ -107,6 +107,21 @@ const CoManagement = () => {
                 >
                   Download
                 </button>
+                <button
+                  onClick={() =>
+                    navigate("/co-po-pso-mapping", {
+                      state: {
+                        subject_id: item.subject_id,
+                        branch: item.branch,
+                        session: item.session,   
+                        semester: item.semester,
+                      },
+                    })
+                  }
+                  className="flex-1 bg-indigo-600 text-white py-1 rounded hover:bg-indigo-700"
+                >
+                  Mapping
+                </button>
               </div>
             </div>
           ))}

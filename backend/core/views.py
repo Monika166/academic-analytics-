@@ -2,7 +2,7 @@ from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Faculty, Subject, Student, CourseOutcome, COMark, AttainmentLevel, POPSO
+from .models import Faculty, Subject, Student, CourseOutcome, COMark, AttainmentLevel, POPSO, COPSOMap
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import csv
@@ -16,7 +16,13 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import letter
 from .models import POPSO
+from .models import COConfiguration, POPSO, Subject, COPSOMap
+from .models import COConfiguration, POPSO, Subject
+from .models import Faculty
+from .models import COPSOMap, POPSO
+
 @csrf_exempt
 def register_faculty(request):
     if request.method == "POST":
@@ -1508,12 +1514,14 @@ def get_all_co_details(request):
 
         if key not in data:
             data[key] = {
-    "subject_id": subject.id,   # 🔥 ADD THIS
+    "subject_id": subject.id,   #  ADD THIS
     "subject_code": subject.subject_code,
     "subject_name": subject.subject_name,
     "branch": subject.branch,
     "semester": subject.semester,
+    "session": subject.session,
     "co_count": 0,
+    
 }
         data[key]["co_count"] += 1
 
@@ -1526,14 +1534,14 @@ def get_co_by_subject(request):
     if not subject_id:
         return JsonResponse([], safe=False)
 
-    # 🔥 HANDLE BOTH CASES
+    #  HANDLE BOTH CASES
     if faculty_id:
         cos = COConfiguration.objects.filter(
             subject_id=subject_id,
             faculty_id=faculty_id
         ).order_by("co_number")
     else:
-        # 🔥 fallback (for safety)
+        #  fallback (for safety)
         cos = COConfiguration.objects.filter(
             subject_id=subject_id
         ).order_by("co_number")
@@ -1560,7 +1568,7 @@ def update_co(request):
 
             co = COConfiguration.objects.get(id=co_id)
 
-            # ✅ SECURITY: only owner can update
+            #  SECURITY: only owner can update
             if str(co.faculty_id) != str(faculty_id):
                 return JsonResponse({"error": "Unauthorized"}, status=403)
 
@@ -1585,7 +1593,7 @@ def add_co_single(request):
             subject = Subject.objects.get(subject_code=subject_code)
             faculty = Faculty.objects.get(id=faculty_id)
 
-            # ✅ Prevent duplicate CO number per faculty
+            #  Prevent duplicate CO number per faculty
             if COConfiguration.objects.filter(
                 subject=subject,
                 faculty=faculty,
@@ -1641,7 +1649,7 @@ def delete_co(request):
             subject = co.subject
             co_number = co.co_number
 
-            # ✅ SECURITY: only owner can delete
+            #  SECURITY: only owner can delete
             if str(co.faculty_id) != str(faculty_id):
                 return JsonResponse({"error": "Unauthorized"}, status=403)
 
@@ -1653,7 +1661,7 @@ def delete_co(request):
                 subject=subject,
                 co_number=co_number
 ).delete()
-            # 🔥 REORDER CO NUMBERS
+            #  REORDER CO NUMBERS
             remaining_cos = COConfiguration.objects.filter(subject=subject).order_by('co_number')
 
             for index, c in enumerate(remaining_cos, start=1):
@@ -1710,13 +1718,13 @@ def get_sessions(request):
     try:
         from .models import Subject, AttainmentLevel
 
-        # 🔥 ALL sessions (from Subject)
+        #  ALL sessions (from Subject)
         subject_sessions = Subject.objects.values_list("session", flat=True)
 
-        # 🔥 sessions with attainment
+        #  sessions with attainment
         attainment_sessions = AttainmentLevel.objects.values_list("session", flat=True)
 
-        # 🔥 MERGE + UNIQUE
+        #  MERGE + UNIQUE
         all_sessions = set(subject_sessions) | set(attainment_sessions)
 
         return JsonResponse(sorted(list(all_sessions)), safe=False)
@@ -1766,7 +1774,7 @@ def get_attainment(request):
         if not session:
             return JsonResponse({}, safe=False)
 
-        # ✅ FIX: always take latest entry
+        #  FIX: always take latest entry
         data = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
 
         if not data:
@@ -1829,3 +1837,238 @@ def save_po_pso(request):
         except Exception as e:
             print("ERROR:", str(e))
             return JsonResponse({"error": str(e)}, status=500)
+
+
+
+
+def get_mapping_data(request):
+    subject_id = request.GET.get("subject_id")
+
+    try:
+        subject = Subject.objects.get(id=subject_id)
+    except Subject.DoesNotExist:
+        return JsonResponse({"error": "Invalid subject"}, status=400)
+
+    
+    cos = COConfiguration.objects.filter(subject=subject).order_by("co_number")
+
+   
+    pos = POPSO.objects.filter(
+        branch=subject.branch,
+        session=subject.session,
+        type="PO"
+    ).order_by("code")
+
+    
+    psos = POPSO.objects.filter(
+        branch=subject.branch,
+        session=subject.session,
+        type="PSO"
+    ).order_by("code")
+
+    return JsonResponse({
+        "cos": [
+            {"id": c.id, "text": c.statement, "co_number": c.co_number}
+            for c in cos
+        ],
+        "pos": [
+            {"code": p.code, "description": p.description}
+            for p in pos
+        ],
+        "psos": [
+            {"code": p.code, "description": p.description}
+            for p in psos
+        ]
+    })
+
+@csrf_exempt
+def save_co_po_pso(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            subject_id = data.get("subject_id")
+            mappings = data.get("mappings")
+
+            subject = Subject.objects.get(id=subject_id)
+
+            #  DELETE OLD (for update)
+            COPSOMap.objects.filter(subject=subject).delete()
+
+            for m in mappings:
+                co_obj = COConfiguration.objects.get(id=m["co"])
+
+                COPSOMap.objects.create(
+                    subject=subject,
+                    co=co_obj,
+                    po_mapping=m["po"],
+                    pso_mapping=m["pso"]
+                )
+
+            return JsonResponse({"message": "Mapping saved successfully"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"error": "Invalid request"}, status=405)
+
+def get_saved_mapping(request):
+    subject_id = request.GET.get("subject_id")
+
+    mappings = COPSOMap.objects.filter(subject_id=subject_id)
+
+    data = []
+
+    for m in mappings:
+        data.append({
+            "co": m.co.id,
+            "po": m.po_mapping,
+            "pso": m.pso_mapping
+        })
+
+    return JsonResponse(data, safe=False)
+
+
+def get_branches(request):
+    branches = POPSO.objects.values_list('branch', flat=True).distinct()
+    return JsonResponse(list(branches), safe=False)
+
+def get_po_pso_sessions(request):
+    try:
+        sessions = POPSO.objects.values_list('session', flat=True).distinct()
+        return JsonResponse(list(sessions), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+
+def get_po_pso(request):
+    try:
+        session = request.GET.get("session")
+        branch = request.GET.get("branch")
+
+        data = POPSO.objects.filter(
+            session=session,
+            branch=branch
+        )
+
+        po_list = []
+        pso_list = []
+
+        for item in data:
+            if item.type == "PO":
+                po_list.append({
+                    "code": item.code,
+                    "description": item.description
+                })
+            elif item.type == "PSO":
+                pso_list.append({
+                    "code": item.code,
+                    "description": item.description
+                })
+
+        return JsonResponse({
+            "po": po_list,
+            "pso": pso_list
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+def download_po_pso_pdf(request):
+    branch = request.GET.get("branch")
+    session = request.GET.get("session")
+
+    #  Fetch data
+    pos = POPSO.objects.filter(branch=branch, session=session, type="PO")
+    psos = POPSO.objects.filter(branch=branch, session=session, type="PSO")
+
+    #  Create response
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="PO_PSO_Details.pdf"'
+
+    #  PDF document
+    doc = SimpleDocTemplate(response, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    content = []
+
+    #  Title
+    content.append(Paragraph("PO - PSO Details", styles['Title']))
+    content.append(Spacer(1, 10))
+
+    #  Branch & Session
+    content.append(Paragraph(f"Branch: {branch}", styles['Normal']))
+    content.append(Paragraph(f"Session: {session}", styles['Normal']))
+    content.append(Spacer(1, 10))
+
+    #  PO Section
+    content.append(Paragraph("Program Outcomes (PO)", styles['Heading2']))
+    content.append(Spacer(1, 5))
+
+    for po in pos:
+        content.append(Paragraph(f"{po.code}: {po.description}", styles['Normal']))
+        content.append(Spacer(1, 5))
+
+    content.append(Spacer(1, 10))
+
+    #  PSO Section
+    content.append(Paragraph("Program Specific Outcomes (PSO)", styles['Heading2']))
+    content.append(Spacer(1, 5))
+
+    for pso in psos:
+        content.append(Paragraph(f"{pso.code}: {pso.description}", styles['Normal']))
+        content.append(Spacer(1, 5))
+
+    #  Build PDF
+    doc.build(content)
+
+    return response
+
+def download_mapping_excel(request):
+    branch = request.GET.get("branch")
+    session = request.GET.get("session")
+    subject_id = request.GET.get("subject_id")
+    subject_name = request.GET.get("subject")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "CO-PO-PSO Mapping"
+
+    ws.append(["Branch", branch])
+    ws.append(["Session", session])
+    ws.append(["Subject", subject_name])
+    ws.append([])
+
+    po_list = list(POPSO.objects.filter(branch=branch, session=session, type="PO"))
+    pso_list = list(POPSO.objects.filter(branch=branch, session=session, type="PSO"))
+
+    mappings = COPSOMap.objects.filter(subject_id=subject_id)
+
+    # Header
+    header = ["CO"] + [po.code for po in po_list] + [pso.code for pso in pso_list]
+    ws.append(header)
+
+    # Rows
+    for m in mappings:
+        row = []
+
+        row.append(str(m.co))  # or m.co.co_number
+
+        for po in po_list:
+            row.append(m.po_mapping.get(po.code, "-"))
+
+        for pso in pso_list:
+            row.append(m.pso_mapping.get(pso.code, "-"))
+
+        ws.append(row)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=co_po_pso_mapping.xlsx"
+
+    wb.save(response)
+    return response
+
