@@ -55,5 +55,6 @@ path('get-po-pso-sessions/', views.get_po_pso_sessions),
 path('download-po-pso-pdf/', views.download_po_pso_pdf),
 path("download-mapping-excel/", views.download_mapping_excel),
 path("get-branches/", views.get_branches),
-
+path("get-mapping-principal/", views.get_mapping_principal),
+path("download-mapping-excel-principal/", views.download_mapping_excel_principal),
 ]

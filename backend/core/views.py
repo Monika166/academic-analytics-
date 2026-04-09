@@ -1799,7 +1799,7 @@ def save_po_pso(request):
 
             print("DATA RECEIVED:", data)
 
-            branch = "CSE"   # TEMP (later replace with user branch)
+            branch = data.get("branch")# TEMP (later replace with user branch)
             session = data.get("session")
             pos = data.get("pos", [])
             psos = data.get("psos", [])
@@ -1967,9 +1967,18 @@ def get_po_pso(request):
                     "description": item.description
                 })
 
+        #  ADD THIS BLOCK ONLY
+        hod = Faculty.objects.filter(
+            branch=branch,
+            designation__iexact="HOD"
+        ).first()
+
+        hod_name = hod.full_name if hod else ""
+
         return JsonResponse({
             "po": po_list,
-            "pso": pso_list
+            "pso": pso_list,
+            "hod_name": hod_name   # NEW FIELD (SAFE ADDITION)
         })
 
     except Exception as e:
@@ -2054,13 +2063,15 @@ def download_mapping_excel(request):
     for m in mappings:
         row = []
 
-        row.append(str(m.co))  # or m.co.co_number
+        row.append(f"CO{m.co.co_number}")# or m.co.co_number
 
         for po in po_list:
-            row.append(m.po_mapping.get(po.code, "-"))
+            value = m.po_mapping.get(po.code, "-")
+            row.append(value)
 
         for pso in pso_list:
-            row.append(m.pso_mapping.get(pso.code, "-"))
+          value = m.pso_mapping.get(pso.code, "-")
+          row.append(value)
 
         ws.append(row)
 
@@ -2071,4 +2082,96 @@ def download_mapping_excel(request):
 
     wb.save(response)
     return response
+def get_mapping_principal(request):
+    session = request.GET.get("session")
+    branch = request.GET.get("branch")
+    subject_id = request.GET.get("subject_id")  # ✅ NEW
 
+    subjects = Subject.objects.filter(session=session, branch=branch)
+
+    # ✅ FILTER BY SUBJECT IF PROVIDED
+    if subject_id:
+        subjects = subjects.filter(id=subject_id)
+
+    result = []
+
+    for sub in subjects:
+        mappings = COPSOMap.objects.filter(subject=sub).select_related("co")
+
+        if not mappings.exists():
+            continue
+
+        #GET FACULTY FROM MAPPING (NOT SUBJECT)
+        first_mapping = mappings.first()
+        faculty = ""
+
+        if first_mapping and first_mapping.co and first_mapping.co.faculty:
+            faculty = first_mapping.co.faculty.full_name
+
+        co_data = []
+
+        for m in mappings:
+            co_data.append({
+                "co_number": m.co.co_number,
+                "po_mapping": m.po_mapping,
+                "pso_mapping": m.pso_mapping
+            })
+
+        result.append({
+            "subject_name": sub.subject_name,
+            "faculty": faculty,
+            "co_data": co_data
+        })
+
+    return JsonResponse(result, safe=False)
+def download_mapping_excel_principal(request):
+    branch = request.GET.get("branch")
+    session = request.GET.get("session")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "CO-PO-PSO Mapping"
+
+    ws.append(["Branch", branch])
+    ws.append(["Session", session])
+    ws.append([])
+
+    po_list = list(POPSO.objects.filter(branch=branch, session=session, type="PO"))
+    pso_list = list(POPSO.objects.filter(branch=branch, session=session, type="PSO"))
+
+    mappings = COPSOMap.objects.filter(
+        subject__branch=branch,
+        subject__session=session
+    ).select_related("subject", "co")
+
+    from collections import defaultdict
+    subject_group = defaultdict(list)
+
+    for m in mappings:
+        subject_group[m.subject.subject_name].append(m)
+
+    for subject_name, maps in subject_group.items():
+        ws.append([])
+        ws.append(["Subject", subject_name])
+
+        header = ["CO"] + [po.code for po in po_list] + [pso.code for pso in pso_list]
+        ws.append(header)
+
+        for m in maps:
+            row = [f"CO{m.co.co_number}"]
+
+            for po in po_list:
+                row.append(m.po_mapping.get(po.code, "-"))
+
+            for pso in pso_list:
+                row.append(m.pso_mapping.get(pso.code, "-"))
+
+            ws.append(row)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=principal_mapping.xlsx"
+
+    wb.save(response)
+    return response
