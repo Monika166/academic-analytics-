@@ -89,20 +89,21 @@ const HodDashboard: React.FC = () => {
         level2: 60,
         level3: 70,
       });
-      const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
+      const coaRes = await fetch(
+        "http://127.0.0.1:8000/api/course-attainment/",
+      );
       const allData = await coaRes.json();
 
       //  FILTER ONLY HOD BRANCH DATA
       const subjectCOA = allData.find((item: any) => {
         return (
-          item.subject?.toLowerCase().trim() === subject.subject_name?.toLowerCase().trim() &&
+          item.subject?.toLowerCase().trim() ===
+            subject.subject_name?.toLowerCase().trim() &&
           item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
           Number(item.semester) === Number(subject.semester) &&
           item.session === subject.session
         );
       });
-
-
 
       setBackendAttainment(subjectCOA ? subjectCOA.attainment : 0);
 
@@ -113,7 +114,6 @@ const HodDashboard: React.FC = () => {
       setTimeout(() => {
         setShowModal(true);
       }, 0);
-
     } catch (err) {
       console.error("Error fetching levels", err);
 
@@ -131,7 +131,6 @@ const HodDashboard: React.FC = () => {
         setShowModal(true);
       }, 0);
     }
-
   };
   const handleDownload = async () => {
     if (!selectedSubject) return;
@@ -140,14 +139,14 @@ const HodDashboard: React.FC = () => {
 
     const subjectCOA = allData.find((item: any) => {
       return (
-        item.subject?.toLowerCase().trim() === selectedSubject.subject_name?.toLowerCase().trim() &&
+        item.subject?.toLowerCase().trim() ===
+          selectedSubject.subject_name?.toLowerCase().trim() &&
         item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
         Number(item.semester) === Number(selectedSubject.semester)
       );
     });
 
     // find current subject data
-
 
     const backendAttainment = subjectCOA ? subjectCOA.attainment : 0;
     const updatedLevels = {
@@ -158,8 +157,6 @@ const HodDashboard: React.FC = () => {
     let csv = "";
 
     const coNumbers = coData.map((co: any) => co.co_number);
-
-
 
     const avgAttainment = backendAttainment;
     // ===== HEADER =====
@@ -203,7 +200,6 @@ const HodDashboard: React.FC = () => {
     coNumbers.forEach((co: number) => (csv += `CO${co},`));
     csv += "Overall\n";
 
-
     // Average CO Attainment
     csv += "Average CO Attainment,";
     coNumbers.forEach(() => (csv += "-,"));
@@ -226,7 +222,6 @@ const HodDashboard: React.FC = () => {
     setIsLogoutModalOpen(false);
     navigate("/hod-login");
   };
-
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -353,11 +348,10 @@ const HodDashboard: React.FC = () => {
               Add Student
             </button>
             <button
-              onClick={() => navigate("/add-po-pso")}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center gap-2"
+              onClick={() => navigate("/hod/po-pso-management")}
+              className="bg-blue-600 text-white px-5 py-3 rounded-xl shadow hover:bg-blue-700 transition"
             >
-              <Plus size={18} />
-              Add PO/PSO
+              PO / PSO Management
             </button>
           </div>
         </div>
@@ -381,21 +375,23 @@ const HodDashboard: React.FC = () => {
                 <button
                   key={sem}
                   onClick={() => setSelectedSemester(sem)}
-                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${selectedSemester === sem
-                    ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+                    selectedSemester === sem
+                      ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
                 >
                   {sem === "all"
                     ? "All Semesters"
-                    : `${sem}${sem === "1"
-                      ? "st"
-                      : sem === "2"
-                        ? "nd"
-                        : sem === "3"
-                          ? "rd"
-                          : "th"
-                    } Sem`}
+                    : `${sem}${
+                        sem === "1"
+                          ? "st"
+                          : sem === "2"
+                            ? "nd"
+                            : sem === "3"
+                              ? "rd"
+                              : "th"
+                      } Sem`}
                 </button>
               ))}
             </div>
@@ -422,10 +418,11 @@ const HodDashboard: React.FC = () => {
                       </button>
                     )}
                     <span
-                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${subject.is_active
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                        }`}
+                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                        subject.is_active
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
                     >
                       {subject.is_active ? "ACTIVE" : "INACTIVE"}
                     </span>
@@ -569,8 +566,6 @@ const HodDashboard: React.FC = () => {
                 </thead>
 
                 <tbody>
-
-
                   {/* Average CO Attainment */}
                   <tr className="bg-gray-100 font-semibold">
                     <td className="border p-2">Average CO Attainment</td>
@@ -580,7 +575,6 @@ const HodDashboard: React.FC = () => {
                     ))}
 
                     <td className="border p-2 text-center">
-
                       {backendAttainment.toFixed(2)}
                     </td>
                   </tr>

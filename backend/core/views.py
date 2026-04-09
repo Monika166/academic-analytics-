@@ -1797,17 +1797,25 @@ def save_po_pso(request):
         try:
             data = json.loads(request.body)
 
-            print("DATA RECEIVED:", data)
-
-            branch = data.get("branch")# TEMP (later replace with user branch)
+            faculty_id = data.get("faculty_id")
             session = data.get("session")
             pos = data.get("pos", [])
             psos = data.get("psos", [])
 
+            if not faculty_id:
+                return JsonResponse({"error": "Faculty ID required"}, status=400)
+
+            # ✅ FETCH BRANCH FROM DB
+            try:
+                faculty = Faculty.objects.get(id=faculty_id)
+                branch = faculty.branch
+            except Faculty.DoesNotExist:
+                return JsonResponse({"error": "Invalid faculty"}, status=400)
+
             if not session:
                 return JsonResponse({"error": "Session required"}, status=400)
 
-            #  delete old records
+            # delete old records
             POPSO.objects.filter(branch=branch, session=session).delete()
 
             # Save PO
@@ -1834,6 +1842,9 @@ def save_po_pso(request):
 
             return JsonResponse({"message": "Saved successfully"})
 
+        except Exception as e:
+            print("ERROR:", str(e))
+            return JsonResponse({"error": str(e)}, status=500)
         except Exception as e:
             print("ERROR:", str(e))
             return JsonResponse({"error": str(e)}, status=500)
@@ -2085,23 +2096,26 @@ def download_mapping_excel(request):
 def get_mapping_principal(request):
     session = request.GET.get("session")
     branch = request.GET.get("branch")
-    subject_id = request.GET.get("subject_id")  # ✅ NEW
+    subject_id = request.GET.get("subject_id")
 
-    subjects = Subject.objects.filter(session=session, branch=branch)
+    # ✅ BASE FILTER
+    subjects = Subject.objects.filter(branch=branch)
 
-    # ✅ FILTER BY SUBJECT IF PROVIDED
+    # ✅ ONLY APPLY SESSION IF PROVIDED (Principal case)
+    if session:
+        subjects = subjects.filter(session=session)
+
     if subject_id:
         subjects = subjects.filter(id=subject_id)
 
     result = []
 
     for sub in subjects:
-        mappings = COPSOMap.objects.filter(subject=sub).select_related("co")
+        mappings = COPSOMap.objects.filter(subject_id=sub.id).select_related("co")
 
         if not mappings.exists():
             continue
 
-        #GET FACULTY FROM MAPPING (NOT SUBJECT)
         first_mapping = mappings.first()
         faculty = ""
 
@@ -2120,7 +2134,14 @@ def get_mapping_principal(request):
         result.append({
             "subject_name": sub.subject_name,
             "faculty": faculty,
-            "co_data": co_data
+            "co_data": co_data,
+
+            # for HOD UI
+            "semester": sub.semester,
+            "session": sub.session,
+            "batch": sub.batch,
+            "faculty_name": faculty,
+            "subject_id": sub.id
         })
 
     return JsonResponse(result, safe=False)
