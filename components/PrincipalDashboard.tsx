@@ -28,7 +28,13 @@ const PrincipalDashboard: React.FC = () => {
   const [poList, setPOList] = useState([]);
   const [psoList, setPSOList] = useState([]);
   const [hodName, setHodName] = useState("");
+  const [psoSessions, setPsoSessions] = useState<string[]>([]);
+  const [psoBranches, setPsoBranches] = useState<string[]>([]);
   const [psoSession, setPsoSession] = useState("");
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [mappingData, setMappingData] = useState<any[]>([]);
+  const [mappingSubject, setMappingSubject] = useState("");
+  const [mappingSubjects, setMappingSubjects] = useState<any[]>([]);
 
   const handleSaveAttainment = async () => {
     if (!selectedSession || !level1 || !level2 || !level3) {
@@ -63,7 +69,7 @@ const PrincipalDashboard: React.FC = () => {
       setSavedData({
         level1,
         level2,
-        level3
+        level3,
       });
       setIsModifyMode(false);
       setShowSaved(false);
@@ -72,13 +78,11 @@ const PrincipalDashboard: React.FC = () => {
       setLevel2("");
       setLevel3("");
       setShowAttainment(false);
-      await fetchCOAData();  //  IMPORTANT
-
+      await fetchCOAData(); //  IMPORTANT
     } catch (err) {
       console.error(err);
       alert("Server error");
     }
-
   };
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
@@ -184,6 +188,27 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchCO();
   }, [coBranch, coSemester, coSubject]);
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const sessionRes = await fetch(
+          "http://127.0.0.1:8000/api/get-po-pso-sessions/",
+        );
+        const sessionsData = await sessionRes.json();
+        setPsoSessions(sessionsData);
+
+        const branchRes = await fetch(
+          "http://127.0.0.1:8000/api/get-branches/",
+        );
+        const branchData = await branchRes.json();
+        setPsoBranches(branchData);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchFilters();
+  }, []);
 
   useEffect(() => {
     if (!selectedSession) return;
@@ -191,12 +216,17 @@ const PrincipalDashboard: React.FC = () => {
     const fetchAttainment = async () => {
       try {
         const res = await fetch(
-          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`
+          `http://127.0.0.1:8000/api/get-attainment/?session=${selectedSession}`,
         );
 
         const data = await res.json();
 
-        if (data && data.level1 !== undefined && data.level2 !== undefined && data.level3 !== undefined) {
+        if (
+          data &&
+          data.level1 !== undefined &&
+          data.level2 !== undefined &&
+          data.level3 !== undefined
+        ) {
           setIsAlreadySet(true);
           setSavedData(data);
 
@@ -204,7 +234,6 @@ const PrincipalDashboard: React.FC = () => {
           setLevel1(data.level1);
           setLevel2(data.level2);
           setLevel3(data.level3);
-
         } else {
           setIsAlreadySet(false);
           setSavedData(null);
@@ -221,8 +250,6 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchAttainment();
   }, [selectedSession]);
-
-  
 
   useEffect(() => {
     let filtered = coaData;
@@ -261,7 +288,6 @@ const PrincipalDashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -275,8 +301,6 @@ const PrincipalDashboard: React.FC = () => {
 
     fetchSessions();
   }, []);
-
-  
 
   useEffect(() => {
     const name = localStorage.getItem("faculty_name");
@@ -341,7 +365,26 @@ const PrincipalDashboard: React.FC = () => {
   useEffect(() => {
     fetchCOAData();
   }, []);
+  const fetchPOPSOData = async () => {
+    if (!psoSession || !psoBranch) return;
 
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/get-po-pso/?session=${psoSession}&branch=${psoBranch}`,
+      );
+
+      const data = await res.json();
+
+      setPOList(data.po);
+      setPSOList(data.pso);
+      setHodName(data.hod_name || "");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  useEffect(() => {
+    fetchPOPSOData();
+  }, [psoSession, psoBranch]);
   const filteredStudents = students.filter((student) => {
     return (
       (selectedBranch === "" || student.branch === selectedBranch) &&
@@ -349,6 +392,46 @@ const PrincipalDashboard: React.FC = () => {
         student.semester.toString() === selectedSemester)
     );
   });
+  const fetchMappingData = async () => {
+    if (!psoSession || !psoBranch) return;
+
+    try {
+      if (!psoSession || !psoBranch || !mappingSubject) return;
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/get-mapping-principal/?session=${psoSession}&branch=${psoBranch}&subject_id=${mappingSubject}`,
+      );
+
+      const data = await res.json();
+      setMappingData(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const fetchMappingSubjects = async () => {
+    if (!psoBranch || !psoSession) return;
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/all-subjects/`);
+
+      const data = await res.json();
+
+      // FILTER SUBJECTS
+      const filtered = data.filter(
+        (s: any) => s.branch === psoBranch && s.session === psoSession,
+      );
+
+      setMappingSubjects(filtered);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  useEffect(() => {
+    fetchMappingSubjects();
+  }, [psoBranch, psoSession]);
+  useEffect(() => {
+    fetchMappingData();
+  }, [psoSession, psoBranch, mappingSubject]);
 
   const filteredFaculty = faculty.filter((f) => {
     return (
@@ -479,8 +562,9 @@ const PrincipalDashboard: React.FC = () => {
               </div>
               <ChevronDown
                 size={14}
-                className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
-                  }`}
+                className={`transition-transform ${
+                  isDropdownOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -637,14 +721,18 @@ const PrincipalDashboard: React.FC = () => {
                 {/* IMPORT BUTTON */}
                 <div className="flex justify-end mt-4">
                   <button
-
                     onClick={() => {
                       if (filteredStudents.length === 0) {
                         alert("No students to export");
                         return;
                       }
 
-                      const headers = ["Name", "Registration No", "Branch", "Semester"];
+                      const headers = [
+                        "Name",
+                        "Registration No",
+                        "Branch",
+                        "Semester",
+                      ];
 
                       const rows = filteredStudents.map((s) => [
                         s.full_name,
@@ -664,7 +752,6 @@ const PrincipalDashboard: React.FC = () => {
                       a.href = url;
                       a.download = "Students_List.csv";
                       a.click();
-
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
@@ -829,14 +916,21 @@ const PrincipalDashboard: React.FC = () => {
             <h3 className="text-slate-500 text-sm">Attainment Level</h3>
             <p className="text-3xl font-bold text-blue-700 mt-2">Set</p>
           </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <p className="text-sm text-slate-500">PO & PSO</p>
-            <button
-              onClick={() => setShowPOPSOModal(true)}
-              className="text-blue-600 text-xl font-semibold mt-2"
-            >
-              View
-            </button>
+          {/* PO PSO details */}
+          <div
+            onClick={() => setShowPOPSOModal(true)}
+            className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
+          >
+            <h3 className="text-slate-500 text-sm">PO & PSO</h3>
+            <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
+          </div>
+          {/*CO-PO-PSO Mapping*/}
+          <div
+            onClick={() => setShowMappingModal(true)}
+            className="bg-white p-6 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition"
+          >
+            <h3 className="text-slate-500 text-sm">CO-PO-PSO Mapping</h3>
+            <p className="text-3xl font-bold text-blue-700 mt-2">View</p>
           </div>
         </div>
       </div>
@@ -981,7 +1075,7 @@ const PrincipalDashboard: React.FC = () => {
               <select
                 value={coBranch}
                 onChange={(e) => {
-                  setCoBranch(e.target.value);   // ✅ CORRECT
+                  setCoBranch(e.target.value); // ✅ CORRECT
                 }}
                 className="border px-4 py-2 rounded"
               >
@@ -1029,7 +1123,7 @@ const PrincipalDashboard: React.FC = () => {
                   .filter(
                     (s) =>
                       s.branch?.toUpperCase().trim() ===
-                      coBranch.toUpperCase().trim() &&
+                        coBranch.toUpperCase().trim() &&
                       s.semester.toString() === coSemester.toString(),
                   )
                   .map((s) => (
@@ -1074,7 +1168,6 @@ const PrincipalDashboard: React.FC = () => {
                     return;
                   }
                   const url = `http://127.0.0.1:8000/api/download-co-pdf/?branch=${coBranch}&semester=${coSemester}&subject_id=${coSubject}`;
-
 
                   window.open(url, "_blank");
                 }}
@@ -1226,7 +1319,7 @@ const PrincipalDashboard: React.FC = () => {
 
                   //  Get selected subject
                   const selectedSub = subjects.find(
-                    (s) => s.id == selectedSubjectId
+                    (s) => s.id == selectedSubjectId,
                   );
 
                   // Check subject
@@ -1239,7 +1332,9 @@ const PrincipalDashboard: React.FC = () => {
                   const semester = selectedSub.semester;
 
                   //  Encode subject (IMPORTANT)
-                  const encodedSubject = encodeURIComponent(selectedSub.subject_name);
+                  const encodedSubject = encodeURIComponent(
+                    selectedSub.subject_name,
+                  );
 
                   const url = `http://127.0.0.1:8000/api/download-excel/${selectedCOBranch}/${semester}/?subject=${encodedSubject}`;
 
@@ -1443,7 +1538,6 @@ const PrincipalDashboard: React.FC = () => {
             {/* LEVEL INPUTS */}
             {selectedSession && (
               <div className="mt-4">
-
                 {/*  ALREADY SET */}
                 {isAlreadySet && !isModifyMode && !showSaved && (
                   <div className="space-y-4">
@@ -1502,7 +1596,6 @@ const PrincipalDashboard: React.FC = () => {
 
                 {/*  CASE 1: SHOW SAVED VALUES */}
 
-
                 {/*  CASE 2: INPUT (NEW OR MODIFY) */}
                 {(!isAlreadySet || isModifyMode) && !showSaved && (
                   <div className="space-y-4">
@@ -1540,48 +1633,342 @@ const PrincipalDashboard: React.FC = () => {
                     </button>
                   </div>
                 )}
-
-
-
               </div>
             )}
-
-
           </div>
         </div>
-      )
-      }
+      )}
+      {/* po-pso details */}
+      {showPOPSOModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* BACKDROP */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-      
-      {/* ================= LOGOUT MODAL ================= */}
-      {
-        isLogoutModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40"></div>
+          {/* MODAL */}
+          <div className="relative bg-white w-[90%] max-w-5xl max-h-[85vh] rounded-2xl shadow-xl z-10 flex flex-col">
+            {/* HEADER */}
+            <div className="flex justify-between items-center p-6 border-b">
+              <h3 className="text-xl font-semibold">PO & PSO Details</h3>
 
-            <div className="bg-white p-6 rounded-xl z-10 text-center">
-              <h3 className="font-bold mb-4">Confirm Logout</h3>
+              <button
+                onClick={() => setShowPOPSOModal(false)}
+                className="text-red-500 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleLogoutConfirm}
-                  className="bg-blue-700 text-white px-4 py-2 rounded"
-                >
-                  Logout
-                </button>
+            {/* FILTERS */}
+            <div className="flex gap-4 p-6 border-b">
+              <select
+                value={psoSession}
+                onChange={(e) => setPsoSession(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Session</option>
+                {psoSessions.map((s: string, i: number) => (
+                  <option key={i} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
 
-                <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="border px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
+              <select
+                value={psoBranch}
+                onChange={(e) => setPsoBranch(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Branch</option>
+                {psoBranches.map((b: string, i: number) => (
+                  <option key={i} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* SCROLLABLE CONTENT */}
+            <div className="p-6 overflow-y-auto">
+              {/* HOD */}
+              {hodName && (
+                <p className="mb-6 text-blue-700 font-semibold text-lg">
+                  HOD: {hodName}
+                </p>
+              )}
+
+              {/* PO SECTION */}
+              <div className="mb-8">
+                <h4 className="text-lg font-semibold mb-4 border-b pb-2">
+                  Program Outcomes (PO)
+                </h4>
+
+                <div className="space-y-3">
+                  {poList.length === 0 ? (
+                    <p className="text-gray-400">No PO found</p>
+                  ) : (
+                    poList.map((po: any, i) => (
+                      <div
+                        key={i}
+                        className="bg-blue-50 border border-blue-100 p-4 rounded-lg"
+                      >
+                        <p className="font-semibold text-blue-800">{po.code}</p>
+                        <p className="text-gray-700 text-sm mt-1">
+                          {po.description}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* PSO SECTION */}
+              <div>
+                <h4 className="text-lg font-semibold mb-4 border-b pb-2">
+                  Program Specific Outcomes (PSO)
+                </h4>
+
+                <div className="space-y-3">
+                  {psoList.length === 0 ? (
+                    <p className="text-gray-400">No PSO found</p>
+                  ) : (
+                    psoList.map((pso: any, i) => (
+                      <div
+                        key={i}
+                        className="bg-green-50 border border-green-100 p-4 rounded-lg"
+                      >
+                        <p className="font-semibold text-green-800">
+                          {pso.code}
+                        </p>
+                        <p className="text-gray-700 text-sm mt-1">
+                          {pso.description}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* FOOTER */}
+            <div className="flex justify-end gap-3 p-6 border-t">
+              <button
+                onClick={() => {
+                  if (!psoSession || !psoBranch) {
+                    alert("Select session and branch");
+                    return;
+                  }
+
+                  const url = `http://127.0.0.1:8000/api/download-po-pso-pdf/?branch=${psoBranch}&session=${psoSession}`;
+                  window.open(url, "_blank");
+                }}
+                className="bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                Download PDF
+              </button>
+
+              <button
+                onClick={() => setShowPOPSOModal(false)}
+                className="border px-4 py-2 rounded"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+      {/*CO-PO-PSO Mapping */}
+      {showMappingModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* BACKDROP */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+          {/* MODAL */}
+          <div className="relative bg-white w-[95%] max-w-7xl max-h-[90vh] rounded-2xl shadow-xl flex flex-col z-10">
+            {/* HEADER */}
+            <div className="flex justify-between items-center p-6 border-b">
+              <h3 className="text-xl font-semibold">CO–PO–PSO Mapping</h3>
+
+              <button
+                onClick={() => setShowMappingModal(false)}
+                className="text-red-500 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* FILTERS */}
+            <div className="flex gap-4 p-6 border-b">
+              <select
+                value={psoSession}
+                onChange={(e) => setPsoSession(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Session</option>
+                {psoSessions.map((s: string, i: number) => (
+                  <option key={i} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={psoBranch}
+                onChange={(e) => setPsoBranch(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Branch</option>
+                {psoBranches.map((b: string, i: number) => (
+                  <option key={i} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={mappingSubject}
+                onChange={(e) => setMappingSubject(e.target.value)}
+                className="border px-4 py-2 rounded"
+              >
+                <option value="">Select Subject</option>
+
+                {mappingSubjects.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.subject_name} ({s.subject_code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* CONTENT */}
+            <div className="p-6 overflow-y-auto">
+              {mappingData.length === 0 ? (
+                <p className="text-gray-400">No Mapping Found</p>
+              ) : (
+                mappingData.map((item: any, index: number) => (
+                  <div key={index} className="mb-8 border rounded-lg p-4">
+                    {/* SUBJECT + FACULTY */}
+                    <div className="flex justify-between mb-3">
+                      <p className="font-semibold text-blue-700 text-lg">
+                        {item.subject_name}
+                      </p>
+
+                      <p className="text-sm text-gray-600">
+                        Faculty: {item.faculty}
+                      </p>
+                    </div>
+
+                    {/* TABLE */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border text-sm">
+                        {/* HEADER */}
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="border px-2 py-2">CO</th>
+
+                            {/* PO HEADERS */}
+                            {poList.map((po: any, i: number) => (
+                              <th key={i} className="border px-2 py-2">
+                                {po.code}
+                              </th>
+                            ))}
+
+                            {/* PSO HEADERS */}
+                            {psoList.map((pso: any, i: number) => (
+                              <th key={i} className="border px-2 py-2">
+                                {pso.code}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+
+                        {/* BODY */}
+                        <tbody>
+                          {item.co_data.map((co: any, i: number) => (
+                            <tr key={i} className="text-center">
+                              {/* CO */}
+                              <td className="border px-2 py-2 font-semibold">
+                                CO{co.co_number}
+                              </td>
+
+                              {/* PO VALUES */}
+                              {poList.map((po: any, j: number) => (
+                                <td key={j} className="border px-2 py-2">
+                                  {co.po_mapping?.[po.code] ?? "-"}
+                                </td>
+                              ))}
+
+                              {/* PSO VALUES */}
+                              {psoList.map((pso: any, j: number) => (
+                                <td key={j} className="border px-2 py-2">
+                                  {co.pso_mapping?.[pso.code] ?? "-"}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="flex justify-end gap-3 p-6 border-t">
+              {/* DOWNLOAD */}
+              <button
+                onClick={() => {
+                  if (!psoSession || !psoBranch) {
+                    alert("Select session and branch");
+                    return;
+                  }
+
+                  const url = `http://127.0.0.1:8000/api/download-mapping-excel-principal/?branch=${psoBranch}&session=${psoSession}`;
+                  window.open(url, "_blank");
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded"
+              >
+                Download Excel
+              </button>
+
+              {/* CLOSE */}
+              <button
+                onClick={() => setShowMappingModal(false)}
+                className="border px-4 py-2 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= LOGOUT MODAL ================= */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40"></div>
+
+          <div className="bg-white p-6 rounded-xl z-10 text-center">
+            <h3 className="font-bold mb-4">Confirm Logout</h3>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleLogoutConfirm}
+                className="bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                Logout
+              </button>
+
+              <button
+                onClick={() => setIsLogoutModalOpen(false)}
+                className="border px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
