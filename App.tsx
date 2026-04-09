@@ -20,6 +20,8 @@ import SelectSubjectForMarks from "./components/SelectSubjectForMarks";
 import CoManagement from "./components/CoManagement";
 import AddPOPSO from "./components/AddPOPSO";
 import COPOPSOMapping from "./components/COPOPSOMapping";
+import PoPsoManagementPage from "./components/PoPsoManagementPage";
+
 const App = () => {
   return (
     <Router>
@@ -45,6 +47,10 @@ const App = () => {
         <Route path="/co-management" element={<CoManagement />} />
         <Route path="/add-po-pso" element={<AddPOPSO />} />
         <Route path="/co-po-pso-mapping" element={<COPOPSOMapping />} />
+        <Route
+          path="/hod/po-pso-management"
+          element={<PoPsoManagementPage />}
+        />
 
         <Route
           path="/select-subject-marks"
