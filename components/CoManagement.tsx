@@ -51,7 +51,14 @@ const CoManagement = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="flex items-center gap-2 mb-4">
+      <h1 className="text-3xl md:text-4xl font-extrabold text-blue-600 text-center mb-6">
+        Course Outcome Management
+      </h1>
+      {/* HEADER */}
+      {/* BUTTON ROW */}
+      <div className="flex justify-between items-center mb-8">
+
+        {/* LEFT - BACK BUTTON */}
         <button
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
@@ -59,17 +66,15 @@ const CoManagement = () => {
           <ArrowLeft size={18} />
           Go back to Dashboard
         </button>
-      </div>
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">CO Management</h1>
 
+        {/* RIGHT - ADD BUTTON */}
         <button
           onClick={() => navigate("/add-co")}
           className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl shadow"
         >
           + Add CO Details
         </button>
+
       </div>
 
       {/* GRID */}
@@ -113,7 +118,7 @@ const CoManagement = () => {
                       state: {
                         subject_id: item.subject_id,
                         branch: item.branch,
-                        session: item.session,   
+                        session: item.session,
                         semester: item.semester,
                       },
                     })
@@ -140,9 +145,15 @@ const CoManagement = () => {
               ×
             </button>
 
-            <h2 className="text-xl font-bold mb-4">
-              {selectedSubject} - CO Details
-            </h2>
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-slate-800">
+                {selectedSubject} ({selectedSubjectCode})
+              </h2>
+
+              <p className="text-sm text-slate-500 mt-1">
+                CO Details
+              </p>
+            </div>
 
             {/* EDIT BUTTON */}
             <div className="flex justify-end mb-3">

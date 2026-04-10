@@ -375,8 +375,8 @@ const PrincipalDashboard: React.FC = () => {
 
       const data = await res.json();
 
-      setPOList(data.po);
-      setPSOList(data.pso);
+      setPOList(data.pos);
+      setPSOList(data.psos);
       setHodName(data.hod_name || "");
     } catch (err) {
       console.error(err);
@@ -562,9 +562,8 @@ const PrincipalDashboard: React.FC = () => {
               </div>
               <ChevronDown
                 size={14}
-                className={`transition-transform ${
-                  isDropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -1075,7 +1074,7 @@ const PrincipalDashboard: React.FC = () => {
               <select
                 value={coBranch}
                 onChange={(e) => {
-                  setCoBranch(e.target.value); // ✅ CORRECT
+                  setCoBranch(e.target.value); // 
                 }}
                 className="border px-4 py-2 rounded"
               >
@@ -1123,7 +1122,7 @@ const PrincipalDashboard: React.FC = () => {
                   .filter(
                     (s) =>
                       s.branch?.toUpperCase().trim() ===
-                        coBranch.toUpperCase().trim() &&
+                      coBranch.toUpperCase().trim() &&
                       s.semester.toString() === coSemester.toString(),
                   )
                   .map((s) => (
@@ -1711,9 +1710,11 @@ const PrincipalDashboard: React.FC = () => {
                         key={i}
                         className="bg-blue-50 border border-blue-100 p-4 rounded-lg"
                       >
-                        <p className="font-semibold text-blue-800">{po.code}</p>
+                        <p className="font-semibold text-blue-800">
+                          PO{i + 1}
+                        </p>
                         <p className="text-gray-700 text-sm mt-1">
-                          {po.description}
+                          {po}
                         </p>
                       </div>
                     ))
@@ -1737,10 +1738,10 @@ const PrincipalDashboard: React.FC = () => {
                         className="bg-green-50 border border-green-100 p-4 rounded-lg"
                       >
                         <p className="font-semibold text-green-800">
-                          {pso.code}
+                          PSO{i + 1}
                         </p>
                         <p className="text-gray-700 text-sm mt-1">
-                          {pso.description}
+                          {pso}
                         </p>
                       </div>
                     ))
@@ -1865,10 +1866,9 @@ const PrincipalDashboard: React.FC = () => {
                             <th className="border px-2 py-2">CO</th>
 
                             {/* PO HEADERS */}
-                            {poList.map((po: any, i: number) => (
-                              <th key={i} className="border px-2 py-2">
-                                {po.code}
-                              </th>
+                            {poList.map((_, i: number) => (
+                              <th key={i} className="border px-2 py-2"
+                              >PO{i + 1}</th>
                             ))}
 
                             {/* PSO HEADERS */}
@@ -1890,18 +1890,26 @@ const PrincipalDashboard: React.FC = () => {
                               </td>
 
                               {/* PO VALUES */}
-                              {poList.map((po: any, j: number) => (
-                                <td key={j} className="border px-2 py-2">
-                                  {co.po_mapping?.[po.code] ?? "-"}
-                                </td>
-                              ))}
+                              {poList.map((_, j: number) => {
+                                const key = `PO${j + 1}`;
+                                return (
+                                  <td key={j} className="border px-2 py-2">
+                                    {co.po_mapping?.[key] ?? "-"}
+                                  </td>
+                                );
+                              })}
 
                               {/* PSO VALUES */}
-                              {psoList.map((pso: any, j: number) => (
-                                <td key={j} className="border px-2 py-2">
-                                  {co.pso_mapping?.[pso.code] ?? "-"}
-                                </td>
-                              ))}
+                              {
+                                psoList.map((_, j: number) => {
+                                  const key = `PSO${j + 1}`;
+                                  return (
+                                    <td key={j} className="border px-2 py-2">
+                                      {co.pso_mapping?.[key] ?? "-"}
+                                    </td>
+                                  );
+                                })
+                              }
                             </tr>
                           ))}
                         </tbody>

@@ -98,7 +98,7 @@ const HodDashboard: React.FC = () => {
       const subjectCOA = allData.find((item: any) => {
         return (
           item.subject?.toLowerCase().trim() ===
-            subject.subject_name?.toLowerCase().trim() &&
+          subject.subject_name?.toLowerCase().trim() &&
           item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
           Number(item.semester) === Number(subject.semester) &&
           item.session === subject.session
@@ -140,7 +140,7 @@ const HodDashboard: React.FC = () => {
     const subjectCOA = allData.find((item: any) => {
       return (
         item.subject?.toLowerCase().trim() ===
-          selectedSubject.subject_name?.toLowerCase().trim() &&
+        selectedSubject.subject_name?.toLowerCase().trim() &&
         item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
         Number(item.semester) === Number(selectedSubject.semester)
       );
@@ -375,23 +375,21 @@ const HodDashboard: React.FC = () => {
                 <button
                   key={sem}
                   onClick={() => setSelectedSemester(sem)}
-                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
-                    selectedSemester === sem
+                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${selectedSemester === sem
                       ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   {sem === "all"
                     ? "All Semesters"
-                    : `${sem}${
-                        sem === "1"
-                          ? "st"
-                          : sem === "2"
-                            ? "nd"
-                            : sem === "3"
-                              ? "rd"
-                              : "th"
-                      } Sem`}
+                    : `${sem}${sem === "1"
+                      ? "st"
+                      : sem === "2"
+                        ? "nd"
+                        : sem === "3"
+                          ? "rd"
+                          : "th"
+                    } Sem`}
                 </button>
               ))}
             </div>
@@ -409,32 +407,37 @@ const HodDashboard: React.FC = () => {
                     <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                       SEMESTER {subject.semester}
                     </span>
-                    {subject.co_data && subject.co_data.length > 0 && (
-                      <button
-                        onClick={() => handleViewCO(subject)}
-                        className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
-                      >
-                        View CO
-                      </button>
-                    )}
+
                     <span
-                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
-                        subject.is_active
+                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${subject.is_active
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
-                      }`}
+                        }`}
                     >
                       {subject.is_active ? "ACTIVE" : "INACTIVE"}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">
-                    {subject.subject_code}
-                  </h3>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                        {subject.subject_code}
+                      </h3>
 
-                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                    {subject.subject_name}
-                  </p>
+                      <p className="text-slate-500 text-sm leading-relaxed">
+                        {subject.subject_name}
+                      </p>
+                    </div>
+
+                    {subject.co_data && subject.co_data.length > 0 && (
+                      <button
+                        onClick={() => handleViewCO(subject)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                      >
+                        View CO
+                      </button>
+                    )}
+                  </div>
 
                   <div className="flex justify-between items-center text-[11px] pt-4 border-t border-slate-200">
                     <div className="flex flex-col text-slate-500 font-semibold uppercase tracking-wide">

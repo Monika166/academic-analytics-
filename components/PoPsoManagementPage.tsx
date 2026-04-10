@@ -85,23 +85,26 @@ export default function PoPsoManagement() {
           PO / PSO Management
         </h1>
       </div>
-
-      {/* Main Card */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-lg font-medium text-gray-700 mb-4">
+      {/* TOP HEADER ROW */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-lg font-medium text-gray-700">
           Manage Program Outcomes (PO) & Program Specific Outcomes (PSO)
         </h2>
 
-        {/* Add Button */}
-        <div className="flex mb-6">
-          <button
-            onClick={() => navigate("/add-po-pso")}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <span className="text-lg font-bold">+</span>
-            Add PO-PSO
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/add-po-pso")}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-md hover:bg-blue-700 transition flex items-center gap-2"
+        >
+          <span className="text-lg font-bold">+</span>
+          Add PO-PSO
+        </button>
+      </div>
+
+      {/* Main Card */}
+      <div className="bg-white rounded-3xl shadow-md border border-slate-200 p-6">
+        
+
+        
 
         {/* Placeholder Section */}
         {mappings.length === 0 ? (

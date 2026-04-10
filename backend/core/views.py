@@ -1714,6 +1714,7 @@ def download_co_details(request):
         writer.writerow([co.co_number, co.statement])
 
     return response
+
 def get_sessions(request):
     try:
         from .models import Subject, AttainmentLevel
@@ -1732,9 +1733,6 @@ def get_sessions(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-from django.http import JsonResponse    
-from django.views.decorators.csrf import csrf_exempt
-import json
 
 @csrf_exempt
 def save_attainment(request):
@@ -1805,7 +1803,7 @@ def save_po_pso(request):
             if not faculty_id:
                 return JsonResponse({"error": "Faculty ID required"}, status=400)
 
-            # ✅ FETCH BRANCH FROM DB
+            # FETCH BRANCH FROM DB
             try:
                 faculty = Faculty.objects.get(id=faculty_id)
                 branch = faculty.branch
@@ -1850,8 +1848,6 @@ def save_po_pso(request):
             return JsonResponse({"error": str(e)}, status=500)
 
 
-
-
 def get_mapping_data(request):
     subject_id = request.GET.get("subject_id")
 
@@ -1860,23 +1856,35 @@ def get_mapping_data(request):
     except Subject.DoesNotExist:
         return JsonResponse({"error": "Invalid subject"}, status=400)
 
-    
+    #  COs
     cos = COConfiguration.objects.filter(subject=subject).order_by("co_number")
 
-   
+    #  POs
     pos = POPSO.objects.filter(
         branch=subject.branch,
         session=subject.session,
         type="PO"
     ).order_by("code")
 
-    
+    #  PSOs
     psos = POPSO.objects.filter(
         branch=subject.branch,
         session=subject.session,
         type="PSO"
     ).order_by("code")
 
+    #  FETCH EXISTING MAPPING (IMPORTANT)
+    mapping_qs = COPSOMap.objects.filter(subject=subject).order_by("co__co_number")
+
+    mapping = []
+    for obj in mapping_qs:
+        mapping.append({
+            "co": obj.co.id,
+            "po": obj.po_mapping,
+            "pso": obj.pso_mapping
+        })
+
+    #  FINAL RESPONSE
     return JsonResponse({
         "cos": [
             {"id": c.id, "text": c.statement, "co_number": c.co_number}
@@ -1889,7 +1897,8 @@ def get_mapping_data(request):
         "psos": [
             {"code": p.code, "description": p.description}
             for p in psos
-        ]
+        ],
+        "mapping": mapping   
     })
 
 @csrf_exempt
@@ -1903,20 +1912,23 @@ def save_co_po_pso(request):
 
             subject = Subject.objects.get(id=subject_id)
 
-            #  DELETE OLD (for update)
-            COPSOMap.objects.filter(subject=subject).delete()
-
             for m in mappings:
                 co_obj = COConfiguration.objects.get(id=m["co"])
 
-                COPSOMap.objects.create(
+                # 🔥 UPDATE OR CREATE
+                obj, created = COPSOMap.objects.update_or_create(
                     subject=subject,
                     co=co_obj,
-                    po_mapping=m["po"],
-                    pso_mapping=m["pso"]
+                    defaults={
+                        "po_mapping": m["po"],
+                        "pso_mapping": m["pso"],
+                    }
                 )
 
-            return JsonResponse({"message": "Mapping saved successfully"})
+            return JsonResponse({
+                "message": "Mapping saved successfully",
+                "status": "updated"
+            })
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
@@ -1968,17 +1980,10 @@ def get_po_pso(request):
 
         for item in data:
             if item.type == "PO":
-                po_list.append({
-                    "code": item.code,
-                    "description": item.description
-                })
+                po_list.append(item.description)
             elif item.type == "PSO":
-                pso_list.append({
-                    "code": item.code,
-                    "description": item.description
-                })
+                pso_list.append(item.description)
 
-        #  ADD THIS BLOCK ONLY
         hod = Faculty.objects.filter(
             branch=branch,
             designation__iexact="HOD"
@@ -1986,16 +1991,17 @@ def get_po_pso(request):
 
         hod_name = hod.full_name if hod else ""
 
+        
+
         return JsonResponse({
-            "po": po_list,
-            "pso": pso_list,
-            "hod_name": hod_name   # NEW FIELD (SAFE ADDITION)
+            "pos": po_list,
+            "psos": pso_list,
+            "hod_name": hod_name
         })
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-
-
+    
 def download_po_pso_pdf(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")
@@ -2093,15 +2099,16 @@ def download_mapping_excel(request):
 
     wb.save(response)
     return response
+
 def get_mapping_principal(request):
     session = request.GET.get("session")
     branch = request.GET.get("branch")
     subject_id = request.GET.get("subject_id")
 
-    # ✅ BASE FILTER
+    # BASE FILTER
     subjects = Subject.objects.filter(branch=branch)
 
-    # ✅ ONLY APPLY SESSION IF PROVIDED (Principal case)
+    # ONLY APPLY SESSION IF PROVIDED (Principal case)
     if session:
         subjects = subjects.filter(session=session)
 
@@ -2145,6 +2152,7 @@ def get_mapping_principal(request):
         })
 
     return JsonResponse(result, safe=False)
+
 def download_mapping_excel_principal(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")

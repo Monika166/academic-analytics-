@@ -13,21 +13,44 @@ const AddPOPSO: React.FC = () => {
   const [psoList, setPsoList] = useState<string[]>(Array(3).fill(""));
   const branch = localStorage.getItem("faculty_branch");
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditable, setIsEditable] = useState(true);
+
+  useEffect(() => {
+    const textareas = document.querySelectorAll("textarea");
+
+    textareas.forEach((ta: any) => {
+      ta.style.height = "auto";
+      ta.style.height = ta.scrollHeight + "px";
+    });
+  }, [poList, psoList]);
 
   useEffect(() => {
     if (!selectedSession) return;
-    fetch(`http://127.0.0.1:8000/api/get-po-pso/?session=${selectedSession}`)
+
+    fetch(
+      `http://127.0.0.1:8000/api/get-po-pso/?session=${selectedSession}&branch=${branch}`
+    )
       .then((res) => res.json())
       .then((data) => {
-        if (data.pos && data.psos) {
+        if (data.pos && data.pos.length > 0) {
           setPoList(data.pos);
           setPsoList(data.psos);
           setPoCount(data.pos.length);
           setPsoCount(data.psos.length);
+
           setIsEditMode(true);
+          setIsEditable(false); // 
+
           toast.success("Existing data loaded");
         } else {
+          // No data case
+          setPoList(Array(12).fill(""));
+          setPsoList(Array(3).fill(""));
+          setPoCount(12);
+          setPsoCount(3);
+
           setIsEditMode(false);
+          setIsEditable(true); // 
         }
       });
   }, [selectedSession]);
@@ -151,6 +174,7 @@ const AddPOPSO: React.FC = () => {
             <label>No. of POs:</label>
             <input
               type="number"
+              disabled={!isEditable}
               value={poCount}
               onChange={(e) => updatePOCount(Number(e.target.value))}
               className="border p-1 w-20"
@@ -163,10 +187,18 @@ const AddPOPSO: React.FC = () => {
               <span className="w-12 font-semibold text-slate-600">
                 PO{index + 1}
               </span>
-              <input
+
+              <textarea
                 value={po}
-                onChange={(e) => handlePOChange(index, e.target.value)}
-                className="flex-1 border p-2 rounded"
+                disabled={!isEditable}
+                onChange={(e) => {
+                  handlePOChange(index, e.target.value);
+
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                className="flex-1 border p-2 rounded resize-none overflow-hidden"
+                rows={1}
               />
             </div>
           ))}
@@ -186,6 +218,7 @@ const AddPOPSO: React.FC = () => {
             <label>No. of PSOs:</label>
             <input
               type="number"
+              disabled={!isEditable}
               value={psoCount}
               onChange={(e) => updatePSOCount(Number(e.target.value))}
               className="border p-1 w-20"
@@ -198,14 +231,32 @@ const AddPOPSO: React.FC = () => {
               <span className="w-16 font-semibold text-slate-600">
                 PSO{index + 1}
               </span>
-              <input
+              <textarea
                 value={pso}
-                onChange={(e) => handlePSOChange(index, e.target.value)}
-                className="flex-1 border p-2 rounded"
+                disabled={!isEditable}
+                onChange={(e) => {
+                  handlePSOChange(index, e.target.value);
+
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                className="flex-1 border p-2 rounded resize-none overflow-hidden"
+                rows={1}
               />
             </div>
           ))}
         </div>
+
+        {isEditMode && !isEditable && (
+          <div className="text-center mt-4">
+            <button
+              onClick={() => setIsEditable(true)}
+              className="bg-yellow-500 text-white px-6 py-2 rounded-xl hover:bg-yellow-600"
+            >
+              Edit
+            </button>
+          </div>
+        )}
         {/*  SUBMIT BUTTON */}
         <div className="text-center mt-6">
           <button
@@ -217,13 +268,13 @@ const AddPOPSO: React.FC = () => {
 
           <button
             onClick={handleReset}
-            className="bg-gray-400 text-white px-6 py-3 rounded-xl hover:bg-gray-500 ml-4"
+            className="bg-white-400 text-black px-6 py-3 rounded-xl hover:bg-white-500 ml-4"
           >
             Reset
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

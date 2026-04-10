@@ -103,9 +103,8 @@ const Dashboard: React.FC = () => {
 
       const data = await res.json();
 
-      setPoList(data.po || []);
-      setPsoList(data.pso || []);
-
+      setPoList(data.pos || []);
+      setPsoList(data.psos || []);
     } catch (err) {
       console.error(err);
     }
@@ -416,8 +415,12 @@ const Dashboard: React.FC = () => {
                     {poList?.length > 0 ? (
                       poList.map((po: any, i) => (
                         <tr key={i}>
-                          <td className="border px-2 py-1 text-center">{po.code}</td>
-                          <td className="border px-2 py-1">{po.description}</td>
+                          <td className="border px-2 py-1 text-center">
+                            {po.code || `PO${i + 1}`}
+                          </td>
+                          <td className="border px-2 py-1">
+                            {po.description || po}
+                          </td>
                         </tr>
                       ))
                     ) : (
@@ -447,8 +450,12 @@ const Dashboard: React.FC = () => {
                     {psoList?.length > 0 ? (
                       psoList.map((pso: any, i) => (
                         <tr key={i}>
-                          <td className="border px-2 py-1 text-center">{pso.code}</td>
-                          <td className="border px-2 py-1">{pso.description}</td>
+                          <td className="border px-2 py-1 text-center">
+                            {pso.code || `PSO${i + 1}`}
+                          </td>
+                          <td className="border px-2 py-1">
+                            {pso.description || pso}
+                          </td>
                         </tr>
                       ))
                     ) : (
