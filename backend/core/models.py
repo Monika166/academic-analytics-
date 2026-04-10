@@ -132,3 +132,6 @@ class COPSOMap(models.Model):
     pso_mapping = models.JSONField()
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('subject', 'co') 

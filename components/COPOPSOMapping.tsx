@@ -9,6 +9,7 @@ const COPOPSOMapping = () => {
   const [coList, setCoList] = useState([]);
   const [poList, setPoList] = useState([]);
   const [psoList, setPsoList] = useState([]);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const [mapping, setMapping] = useState<
     Array<{ co: number; po: Record<string, number>; pso: Record<string, number> }>
@@ -24,29 +25,37 @@ const COPOPSOMapping = () => {
           setPoList(data.pos);
           setPsoList(data.psos);
 
-          const temp = data.cos.map((co: any, i: number) => ({
-            co: co.id,
-            po: Object.fromEntries(
-              data.pos.map((_: any, j: number) => [`PO${j + 1}`, 0])
-            ),
-            pso: Object.fromEntries(
-              data.psos.map((_: any, j: number) => [`PSO${j + 1}`, 0])
-            ),
-          }));
+          // 🔥 CHECK IF MAPPING EXISTS
+          if (data.mapping && data.mapping.length > 0) {
+            setMapping(data.mapping);
+            setIsEditMode(false); // lock initially
+          } else {
+            // CREATE NEW
+            const temp = data.cos.map((co: any, i: number) => ({
+              co: co.id,
+              po: Object.fromEntries(
+                data.pos.map((_: any, j: number) => [`PO${j + 1}`, 0])
+              ),
+              pso: Object.fromEntries(
+                data.psos.map((_: any, j: number) => [`PSO${j + 1}`, 0])
+              ),
+            }));
 
-          setMapping(temp);
+            setMapping(temp);
+            setIsEditMode(true); // allow input
+          }
         });
     }
   }, [subject_id]);
 
-  // 🔹 Handle change
+  //  Handle change
   const handleChange = (coIndex: number, type: "po" | "pso", key: string, value: any) => {
     const updated = [...mapping];
     updated[coIndex][type][key] = Number(value);
     setMapping(updated);
   };
 
-  // 🔹 Submit
+  //  Submit
   const handleSubmit = async () => {
     const res = await fetch("http://127.0.0.1:8000/api/save-co-po-pso/", {
       method: "POST",
@@ -91,9 +100,7 @@ const COPOPSOMapping = () => {
           <p className="text-sm text-gray-500 text-center mb-4">
             (Articulation Matrix)
           </p>
-          <p className="text-sm text-gray-600  mb-2">
-            Correlation Levels: 0 - No Correlation, 1 - Lowest, 2 - Moderate, 3 - Highest
-          </p>
+
 
           <div className="overflow-auto">
             <table className="w-full border border-gray-300 text-center">
@@ -123,32 +130,34 @@ const COPOPSOMapping = () => {
                     {/* PO */}
                     {poList.map((_: any, j: number) => (
                       <td key={j} className="border">
-                        <select
+                        <input
+                          type="number"
+                          min={0}
+                          max={3}
+                          disabled={!isEditMode}
                           value={mapping[i]?.po[`PO${j + 1}`]}
                           onChange={(e) =>
                             handleChange(i, "po", `PO${j + 1}`, e.target.value)
                           }
-                        >
-                          {[0, 1, 2, 3].map((v) => (
-                            <option key={v}>{v}</option>
-                          ))}
-                        </select>
+                          className="w-16 text-center border rounded"
+                        />
                       </td>
                     ))}
 
                     {/* PSO */}
                     {psoList.map((_: any, j: number) => (
                       <td key={j} className="border">
-                        <select
+                        <input
+                          type="number"
+                          min={0}
+                          max={3}
+                          disabled={!isEditMode}
                           value={mapping[i]?.pso[`PSO${j + 1}`]}
                           onChange={(e) =>
                             handleChange(i, "pso", `PSO${j + 1}`, e.target.value)
                           }
-                        >
-                          {[0, 1, 2, 3].map((v) => (
-                            <option key={v}>{v}</option>
-                          ))}
-                        </select>
+                          className="w-16 text-center border rounded"
+                        />
                       </td>
                     ))}
                   </tr>
@@ -156,16 +165,38 @@ const COPOPSOMapping = () => {
               </tbody>
 
             </table>
+            <p className="text-sm text-gray-600  mb-2">
+              Correlation Levels: 0 - No Correlation, 1 - Lowest, 2 - Moderate, 3 - Highest
+            </p>
           </div>
 
-          {/* 🔘 Submit */}
-          <div className="mt-6 text-center">
+
+
+          {/* Submit */}
+          <div className="mt-6 flex justify-center gap-4">
+
+            {/* EDIT BUTTON */}
+            {!isEditMode && (
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg"
+              >
+                Edit Mapping
+              </button>
+            )}
+
+            {/* UPDATE / SUBMIT BUTTON */}
             <button
               onClick={handleSubmit}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+              disabled={!isEditMode}
+              className={`px-6 py-2 rounded-lg text-white ${isEditMode
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-gray-400 cursor-not-allowed"
+                }`}
             >
-              Submit Mapping
+              {isEditMode ? "Submit Mapping" : "Update Mapping"}
             </button>
+
           </div>
         </>
       )}
