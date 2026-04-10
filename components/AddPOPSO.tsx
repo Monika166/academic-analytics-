@@ -28,18 +28,18 @@ const AddPOPSO: React.FC = () => {
     if (!selectedSession) return;
 
     fetch(
-      `http://127.0.0.1:8000/api/get-po-pso/?session=${selectedSession}&branch=${branch}`
+      `http://127.0.0.1:8000/api/get-po-pso/?session=${selectedSession}&branch=${branch}`,
     )
       .then((res) => res.json())
       .then((data) => {
         if (data.pos && data.pos.length > 0) {
-          setPoList(data.pos);
-          setPsoList(data.psos);
+          setPoList(data.pos.map((p: any) => p.description));
+          setPsoList(data.psos.map((p: any) => p.description));
           setPoCount(data.pos.length);
           setPsoCount(data.psos.length);
 
           setIsEditMode(true);
-          setIsEditable(false); // 
+          setIsEditable(false); //
 
           toast.success("Existing data loaded");
         } else {
@@ -50,7 +50,7 @@ const AddPOPSO: React.FC = () => {
           setPsoCount(3);
 
           setIsEditMode(false);
-          setIsEditable(true); // 
+          setIsEditable(true); //
         }
       });
   }, [selectedSession]);
@@ -274,7 +274,7 @@ const AddPOPSO: React.FC = () => {
           </button>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 

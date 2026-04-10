@@ -2003,8 +2003,8 @@ def get_po_pso(request):
         hod_name = hod.full_name if hod else ""
 
         return JsonResponse({
-            "po": po_list,
-            "pso": pso_list,
+            "pos": po_list,
+            "psos": pso_list,
             "hod_name": hod_name   # NEW FIELD (SAFE ADDITION)
         })
 
