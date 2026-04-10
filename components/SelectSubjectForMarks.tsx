@@ -96,15 +96,32 @@ export default function SelectSubjectForMarks() {
           </p>
         )}
 
-        <button
-          onClick={handleNext}
-          disabled={isMarksExists}
-          className={`w-full py-2 rounded text-white ${
-            isMarksExists ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600"
-          }`}
-        >
-          {isMarksExists ? "CO Marks Already Added" : "Continue"}
-        </button>
+        {isMarksExists ? (
+  <button
+    onClick={() =>
+      navigate("/batch", {
+        state: {
+          subject_id: selected.id,
+          branch: selected.branch,
+          semester: selected.semester,
+          batch: selected.batch,
+          session: selected.session,
+          mode: "view",
+        },
+      })
+    }
+    className="w-full py-2 rounded bg-green-600 text-white"
+  >
+    View Marks
+  </button>
+) : (
+  <button
+    onClick={handleNext}
+    className="w-full py-2 rounded bg-blue-600 text-white"
+  >
+    Continue
+  </button>
+)}
       </div>
     </div>
   );
