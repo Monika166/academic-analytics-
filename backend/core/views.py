@@ -668,7 +668,7 @@ def download_excel(request, branch, semester):
       bottom=Side(style="thin")
 )
     # =========================
-    # 🔥 ADD HEADER SECTION
+    # ADD HEADER SECTION
     # =========================
 
     ws.append(["Subject", subject_name])
@@ -684,7 +684,8 @@ def download_excel(request, branch, semester):
     ws.append(["Course Outcomes"])
     ws["A5"].font = Font(bold=True, size=14)
 
-    # ✅ Write CO rows
+    # 
+    #  Write CO rows
     start_row = 6
 
     for co in co_details:
@@ -1230,11 +1231,13 @@ def course_attainment(request):
         # ✅ GET SESSION FROM FRONTEND
         session_param = request.GET.get("session")
 
+       
+
+        #  FILTER MARKS BY SESSION (IMPORTANT)
         marks = COMark.objects.select_related("student", "subject")
 
-        # ✅ FILTER MARKS BY SESSION (IMPORTANT)
         if session_param:
-            marks = marks.filter(session=session_param)
+         marks = marks.filter(session=session_param)
 
         from collections import defaultdict
 
@@ -1242,17 +1245,17 @@ def course_attainment(request):
 
         # Group marks
         for m in marks:
-            key = (m.subject.subject_name, m.branch, m.semester)
+            key = (m.subject.subject_name, m.branch, m.semester, m.session)
             subject_data[key][f"CO{m.co_number}"].append(m.marks)
 
         results = []
 
-        for (subject, branch, semester), co_dict in subject_data.items():
+        for (subject, branch, semester, session_val), co_dict in subject_data.items():
 
             attainment_list = []
             level_list = []
 
-            # 🔥 GET TOTAL CO COUNT FROM CONFIG
+            #  GET TOTAL CO COUNT FROM CONFIG
             co_configs = COConfiguration.objects.filter(
                 subject__subject_name=subject,
                 subject__branch__iexact=branch,
@@ -1288,10 +1291,18 @@ def course_attainment(request):
                 ).first()
 
                
-               # ✅ ALWAYS TAKE LATEST ATTAINMENT SESSION (CORRECT SOURCE)
-                latest_session = AttainmentLevel.objects.order_by('-id').values_list('session', flat=True).first()
+               #  ALWAYS TAKE LATEST ATTAINMENT SESSION (CORRECT SOURCE)
+                session_val = session_param if session_param else (
+                    Subject.objects.filter(
+                        subject_name=subject,
+                        branch__iexact=branch,
+                        semester=semester
+    ).values_list("session", flat=True).first()
+)
 
-                session_val = latest_session
+                
+
+                levels = AttainmentLevel.objects.filter(session=session_val).order_by('-id').first()
 
                 levels = AttainmentLevel.objects.filter(session=session_val).order_by('-id').first()
 
@@ -1324,7 +1335,7 @@ def course_attainment(request):
                 "branch": branch,
                 "subject": subject,
                 "semester": semester,
-                "session": latest_session,  #  FIXED
+                "session": session_val,  #  FIXED
                 "attainment": round(final_attainment, 2),
                 "level": final_level
             })
@@ -1337,7 +1348,7 @@ def course_attainment(request):
                     "branch": s.branch,
                     "subject": s.subject_name,
                     "semester": s.semester,
-                    "session": latest_session,
+                    "session": s.session,
                     "attainment": 0,
                     "level": 0
         })
@@ -1714,7 +1725,6 @@ def download_co_details(request):
         writer.writerow([co.co_number, co.statement])
 
     return response
-
 def get_sessions(request):
     try:
         from .models import Subject, AttainmentLevel
@@ -1733,6 +1743,9 @@ def get_sessions(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+from django.http import JsonResponse    
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 @csrf_exempt
 def save_attainment(request):
@@ -1748,15 +1761,33 @@ def save_attainment(request):
             if not all([session, level1, level2, level3]):
                 return JsonResponse({"error": "All fields required"}, status=400)
 
-            # 🔥 THIS IS THE FIX (UPDATE INSTEAD OF CREATE)
-            obj, created = AttainmentLevel.objects.update_or_create(
+            existing = AttainmentLevel.objects.filter(session=session).first()
+
+            if existing:
+    #  UPDATE
+                existing.level1 = level1
+                existing.level2 = level2
+                existing.level3 = level3
+                existing.save()
+
+                return JsonResponse({"message": "Updated successfully"})
+
+#  CREATE NEW
+            AttainmentLevel.objects.create(
                 session=session,
-                defaults={
-                    "level1": level1,
-                    "level2": level2,
-                    "level3": level3
-                }
-            )
+                level1=level1,
+                level2=level2,
+                level3=level3
+)
+
+            return JsonResponse({"message": "Saved successfully"})
+
+            AttainmentLevel.objects.create(
+                session=session,
+                level1=level1,
+                level2=level2,
+                level3=level3
+)
 
             return JsonResponse({"message": "Saved successfully"})
 
@@ -1846,8 +1877,6 @@ def save_po_pso(request):
         except Exception as e:
             print("ERROR:", str(e))
             return JsonResponse({"error": str(e)}, status=500)
-
-
 def get_mapping_data(request):
     subject_id = request.GET.get("subject_id")
 
@@ -1856,35 +1885,21 @@ def get_mapping_data(request):
     except Subject.DoesNotExist:
         return JsonResponse({"error": "Invalid subject"}, status=400)
 
-    #  COs
+    
     cos = COConfiguration.objects.filter(subject=subject).order_by("co_number")
 
-    #  POs
+   
     pos = POPSO.objects.filter(
         branch=subject.branch,
         session=subject.session,
         type="PO"
-    ).order_by("code")
-
-    #  PSOs
+    ).order_by("code")   
     psos = POPSO.objects.filter(
         branch=subject.branch,
         session=subject.session,
         type="PSO"
     ).order_by("code")
 
-    #  FETCH EXISTING MAPPING (IMPORTANT)
-    mapping_qs = COPSOMap.objects.filter(subject=subject).order_by("co__co_number")
-
-    mapping = []
-    for obj in mapping_qs:
-        mapping.append({
-            "co": obj.co.id,
-            "po": obj.po_mapping,
-            "pso": obj.pso_mapping
-        })
-
-    #  FINAL RESPONSE
     return JsonResponse({
         "cos": [
             {"id": c.id, "text": c.statement, "co_number": c.co_number}
@@ -1897,10 +1912,8 @@ def get_mapping_data(request):
         "psos": [
             {"code": p.code, "description": p.description}
             for p in psos
-        ],
-        "mapping": mapping   
+        ]
     })
-
 @csrf_exempt
 def save_co_po_pso(request):
     if request.method == "POST":
@@ -1912,23 +1925,20 @@ def save_co_po_pso(request):
 
             subject = Subject.objects.get(id=subject_id)
 
+            #  DELETE OLD (for update)
+            COPSOMap.objects.filter(subject=subject).delete()
+
             for m in mappings:
                 co_obj = COConfiguration.objects.get(id=m["co"])
 
-                # 🔥 UPDATE OR CREATE
-                obj, created = COPSOMap.objects.update_or_create(
+                COPSOMap.objects.create(
                     subject=subject,
                     co=co_obj,
-                    defaults={
-                        "po_mapping": m["po"],
-                        "pso_mapping": m["pso"],
-                    }
+                    po_mapping=m["po"],
+                    pso_mapping=m["pso"]
                 )
 
-            return JsonResponse({
-                "message": "Mapping saved successfully",
-                "status": "updated"
-            })
+            return JsonResponse({"message": "Mapping saved successfully"})
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
@@ -1937,11 +1947,8 @@ def save_co_po_pso(request):
 
 def get_saved_mapping(request):
     subject_id = request.GET.get("subject_id")
-
     mappings = COPSOMap.objects.filter(subject_id=subject_id)
-
     data = []
-
     for m in mappings:
         data.append({
             "co": m.co.id,
@@ -1962,9 +1969,6 @@ def get_po_pso_sessions(request):
         return JsonResponse(list(sessions), safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-
-
-
 def get_po_pso(request):
     try:
         session = request.GET.get("session")
@@ -1980,10 +1984,17 @@ def get_po_pso(request):
 
         for item in data:
             if item.type == "PO":
-                po_list.append(item.description)
+                po_list.append({
+                    "code": item.code,
+                    "description": item.description
+                })
             elif item.type == "PSO":
-                pso_list.append(item.description)
+                pso_list.append({
+                    "code": item.code,
+                    "description": item.description
+                })
 
+        #  ADD THIS BLOCK ONLY
         hod = Faculty.objects.filter(
             branch=branch,
             designation__iexact="HOD"
@@ -1991,17 +2002,16 @@ def get_po_pso(request):
 
         hod_name = hod.full_name if hod else ""
 
-        
-
         return JsonResponse({
-            "pos": po_list,
-            "psos": pso_list,
-            "hod_name": hod_name
+            "po": po_list,
+            "pso": pso_list,
+            "hod_name": hod_name   # NEW FIELD (SAFE ADDITION)
         })
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
-    
+
+
 def download_po_pso_pdf(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")
@@ -2099,16 +2109,15 @@ def download_mapping_excel(request):
 
     wb.save(response)
     return response
-
 def get_mapping_principal(request):
     session = request.GET.get("session")
     branch = request.GET.get("branch")
     subject_id = request.GET.get("subject_id")
 
-    # BASE FILTER
+    # ✅ BASE FILTER
     subjects = Subject.objects.filter(branch=branch)
 
-    # ONLY APPLY SESSION IF PROVIDED (Principal case)
+    # ✅ ONLY APPLY SESSION IF PROVIDED (Principal case)
     if session:
         subjects = subjects.filter(session=session)
 
@@ -2152,7 +2161,6 @@ def get_mapping_principal(request):
         })
 
     return JsonResponse(result, safe=False)
-
 def download_mapping_excel_principal(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")
