@@ -375,8 +375,8 @@ const PrincipalDashboard: React.FC = () => {
 
       const data = await res.json();
 
-      setPOList(data.pos);
-      setPSOList(data.psos);
+      setPOList(data.pos.map((p: any) => p.description));
+      setPSOList(data.psos.map((p: any) => p.description));
       setHodName(data.hod_name || "");
     } catch (err) {
       console.error(err);
@@ -1868,10 +1868,8 @@ const PrincipalDashboard: React.FC = () => {
                             ))}
 
                             {/* PSO HEADERS */}
-                            {psoList.map((pso: any, i: number) => (
-                              <th key={i} className="border px-2 py-2">
-                                {pso.code}
-                              </th>
+                            {psoList.map((_, i: number) => (
+                              <th key={i}>PSO{i + 1}</th>
                             ))}
                           </tr>
                         </thead>

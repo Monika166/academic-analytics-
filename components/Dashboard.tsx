@@ -98,7 +98,7 @@ const Dashboard: React.FC = () => {
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/get-po-pso/?branch=${branch}&session=${selectedSession}`
+        `http://127.0.0.1:8000/api/get-po-pso/?branch=${branch}&session=${selectedSession}`,
       );
 
       const data = await res.json();
@@ -292,7 +292,7 @@ const Dashboard: React.FC = () => {
                     className="mt-2 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
                     onClick={() =>
                       window.open(
-                        `http://127.0.0.1:8000/api/download-mapping-excel/?branch=${item.branch}&session=${item.session}&subject=${item.subject}&subject_id=${item.subject_id}`
+                        `http://127.0.0.1:8000/api/download-mapping-excel/?branch=${item.branch}&session=${item.session}&subject=${item.subject}&subject_id=${item.subject_id}`,
                       )
                     }
                   >
@@ -349,7 +349,6 @@ const Dashboard: React.FC = () => {
       {showPOPSOModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl w-[600px] max-h-[80vh] overflow-y-auto relative">
-
             {/* CLOSE */}
             <button
               onClick={() => setShowPOPSOModal(false)}
@@ -363,10 +362,7 @@ const Dashboard: React.FC = () => {
               PO PSO Details
             </h2>
 
-
-
             <div className="flex gap-2 mb-4">
-
               {/* BRANCH DROPDOWN */}
               <select
                 value={branch}
@@ -380,7 +376,9 @@ const Dashboard: React.FC = () => {
               >
                 <option value="">Select Branch</option>
                 {branches.map((b, i) => (
-                  <option key={i} value={b}>{b}</option>
+                  <option key={i} value={b}>
+                    {b}
+                  </option>
                 ))}
               </select>
 
@@ -392,10 +390,11 @@ const Dashboard: React.FC = () => {
               >
                 <option value="">Select Session</option>
                 {sessions.map((s, i) => (
-                  <option key={i} value={s}>{s}</option>
+                  <option key={i} value={s}>
+                    {s}
+                  </option>
                 ))}
               </select>
-
             </div>
 
             {/* PO LIST */}
@@ -425,7 +424,9 @@ const Dashboard: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={2} className="text-center py-2">No POs found</td>
+                        <td colSpan={2} className="text-center py-2">
+                          No POs found
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -460,7 +461,9 @@ const Dashboard: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={2} className="text-center py-2">No PSOs found</td>
+                        <td colSpan={2} className="text-center py-2">
+                          No PSOs found
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -471,14 +474,13 @@ const Dashboard: React.FC = () => {
             <button
               onClick={() => {
                 window.open(
-                  `http://127.0.0.1:8000/api/download-po-pso-pdf/?branch=${branch}&session=${session}`
+                  `http://127.0.0.1:8000/api/download-po-pso-pdf/?branch=${branch}&session=${session}`,
                 );
               }}
               className="bg-green-600 text-white px-3 py-1.5 rounded text-sm mt-2 w-fit mx-auto block"
             >
               Download PDF
             </button>
-
           </div>
         </div>
       )}
