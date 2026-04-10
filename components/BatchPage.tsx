@@ -11,12 +11,20 @@ interface Student {
 export default function BatchPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { branch, batch, semester, session, subject_id } = location.state || {};
+  const {
+  branch,
+  batch,
+  semester,
+  session,
+  subject_id,
+  mode,
+} = location.state || {};
 
   const [students, setStudents] = useState<Student[]>([]);
   const [marks, setMarks] = useState<any>({});
   const [coList, setCoList] = useState<any[]>([]);
   const [existingMarks, setExistingMarks] = useState<any>({});
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // ✅ Fetch Students (POST)
   useEffect(() => {
@@ -52,9 +60,12 @@ export default function BatchPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            subject_id,
-            branch,
-          }),
+  subject_id,
+  branch,
+  batch,
+  semester,
+  session,
+}),
         });
 
         const data = await res.json();
@@ -198,16 +209,21 @@ export default function BatchPage() {
                 {coList.map((co) => {
                   const key = `${student.registration_number}_CO${co.co_number}`;
                   const isFilled = existingMarks[key] && existingMarks[key] > 0;
+                  const shouldDisable = mode === "view" && !isEditMode;
 
                   return (
                     <td key={co.co_number} className="border px-4 py-2">
                       <input
                         type="number"
                         className={`border p-1 w-20 ${
-                          isFilled ? "bg-gray-200 cursor-not-allowed" : ""
-                        }`}
-                        disabled={isFilled}
-                        defaultValue={isFilled ? existingMarks[key] : ""}
+  shouldDisable ? "bg-gray-200 cursor-not-allowed" : ""
+}`}
+                        disabled={shouldDisable}
+                        value={
+  marks[student.id]?.[`CO${co.co_number}`] ??
+  existingMarks[key] ??
+  ""
+}
                         onChange={(e) =>
                           handleChange(student.id, co.co_number, e.target.value)
                         }
@@ -221,12 +237,21 @@ export default function BatchPage() {
         </table>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        className="mt-6 bg-blue-600 text-white px-6 py-2 rounded"
-      >
-        Submit
-      </button>
+      {mode === "view" && !isEditMode ? (
+  <button
+    onClick={() => setIsEditMode(true)}
+    className="mt-6 bg-yellow-500 text-white px-6 py-2 rounded"
+  >
+    Edit
+  </button>
+) : (
+  <button
+    onClick={handleSubmit}
+    className="mt-6 bg-green-600 text-white px-6 py-2 rounded"
+  >
+    {mode === "view" ? "Save Changes" : "Submit"}
+  </button>
+)}
     </div>
   );
 }
