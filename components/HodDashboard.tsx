@@ -98,7 +98,7 @@ const HodDashboard: React.FC = () => {
       const subjectCOA = allData.find((item: any) => {
         return (
           item.subject?.toLowerCase().trim() ===
-          subject.subject_name?.toLowerCase().trim() &&
+            subject.subject_name?.toLowerCase().trim() &&
           item.branch?.toLowerCase() === subject.branch?.toLowerCase() &&
           Number(item.semester) === Number(subject.semester) &&
           item.session === subject.session
@@ -132,91 +132,35 @@ const HodDashboard: React.FC = () => {
       }, 0);
     }
   };
-  const handleDownload = async () => {
-    if (!selectedSubject) return;
-    const coaRes = await fetch("http://127.0.0.1:8000/api/course-attainment/");
-    const allData = await coaRes.json();
 
-    const subjectCOA = allData.find((item: any) => {
-      return (
-        item.subject?.toLowerCase().trim() ===
-        selectedSubject.subject_name?.toLowerCase().trim() &&
-        item.branch?.toLowerCase() === selectedSubject.branch?.toLowerCase() &&
-        Number(item.semester) === Number(selectedSubject.semester)
-      );
-    });
+  const handleDownloadCOA = async () => {
+    try {
+      const url = `http://127.0.0.1:8000/api/download-excel/${selectedSubject.branch}/${selectedSubject.semester}/?subject=${selectedSubject.subject_name}`;
 
-    // find current subject data
+      const response = await fetch(url);
 
-    const backendAttainment = subjectCOA ? subjectCOA.attainment : 0;
-    const updatedLevels = {
-      level1: 50,
-      level2: 60,
-      level3: 70,
-    };
-    let csv = "";
+      if (!response.ok) {
+        alert("Failed to download report");
+        return;
+      }
 
-    const coNumbers = coData.map((co: any) => co.co_number);
+      const blob = await response.blob();
 
-    const avgAttainment = backendAttainment;
-    // ===== HEADER =====
-    csv += `Subject:,${selectedSubject.subject_name}\n`;
-    csv += `Branch:,${selectedSubject.branch}\n`;
-    csv += `Semester:,${selectedSubject.semester}\n\n`;
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `${selectedSubject.subject_name}_CO_Report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
-    // ===== CO DETAILS =====
-    csv += "Course Outcomes\n";
-    coData.forEach((co: any) => {
-      csv += `CO${co.co_number},${co.co_description}\n`;
-    });
-
-    csv += "\n";
-
-    // ===== TABLE HEADER =====
-    csv += "Student Name,Reg No,Subject,";
-    coNumbers.forEach((co: number) => (csv += `CO${co},`));
-    csv += "Total\n";
-
-    // ===== STUDENT DATA =====
-    (selectedSubject.students || []).forEach((stu: any) => {
-      let total = 0;
-
-      let row = `${stu.name},${stu.reg_no},${selectedSubject.subject_name},`;
-
-      coNumbers.forEach((co: number) => {
-        const val = stu[`co${co}`] || 0;
-        total += val;
-        row += `${val},`;
-      });
-
-      row += `${total}\n`;
-      csv += row;
-    });
-
-    csv += "\n";
-
-    // ===== CALCULATION TABLE =====
-    csv += "Metric,";
-    coNumbers.forEach((co: number) => (csv += `CO${co},`));
-    csv += "Overall\n";
-
-    // Average CO Attainment
-    csv += "Average CO Attainment,";
-    coNumbers.forEach(() => (csv += "-,"));
-    csv += `${avgAttainment.toFixed(2)}\n`;
-
-    // ===== DOWNLOAD =====
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "co_report.csv";
-
-    document.body.appendChild(a); //  IMPORTANT
-    a.click();
-    document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error("Download failed", err);
+      alert("Error downloading report");
+    }
   };
+
   const handleLogoutConfirm = () => {
     localStorage.clear();
     setIsLogoutModalOpen(false);
@@ -375,21 +319,23 @@ const HodDashboard: React.FC = () => {
                 <button
                   key={sem}
                   onClick={() => setSelectedSemester(sem)}
-                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${selectedSemester === sem
+                  className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+                    selectedSemester === sem
                       ? "bg-blue-600 text-white shadow-lg translate-y-[-1px]"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                  }`}
                 >
                   {sem === "all"
                     ? "All Semesters"
-                    : `${sem}${sem === "1"
-                      ? "st"
-                      : sem === "2"
-                        ? "nd"
-                        : sem === "3"
-                          ? "rd"
-                          : "th"
-                    } Sem`}
+                    : `${sem}${
+                        sem === "1"
+                          ? "st"
+                          : sem === "2"
+                            ? "nd"
+                            : sem === "3"
+                              ? "rd"
+                              : "th"
+                      } Sem`}
                 </button>
               ))}
             </div>
@@ -409,10 +355,11 @@ const HodDashboard: React.FC = () => {
                     </span>
 
                     <span
-                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${subject.is_active
+                      className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                        subject.is_active
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
-                        }`}
+                      }`}
                     >
                       {subject.is_active ? "ACTIVE" : "INACTIVE"}
                     </span>
@@ -588,10 +535,10 @@ const HodDashboard: React.FC = () => {
             {/* BUTTONS */}
             <div className="flex justify-between mt-6">
               <button
-                onClick={handleDownload}
+                onClick={handleDownloadCOA}
                 className="bg-green-600 text-white px-4 py-2 rounded"
               >
-                Download
+                Download PDF
               </button>
 
               <button
