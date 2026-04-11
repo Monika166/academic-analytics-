@@ -15,7 +15,7 @@ from .models import COConfiguration
 from openpyxl.styles import Font, Alignment, Border, Side
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from .models import POPSO
 from .models import COConfiguration, POPSO, Subject, COPSOMap
@@ -640,7 +640,7 @@ def get_branch_semester(request):
     return JsonResponse(list(data_map.values()), safe=False)
 @csrf_exempt
 def download_excel(request, branch, semester):
-    
+
     subject_name = request.GET.get("subject")
 
     marks = COMark.objects.filter(
@@ -649,60 +649,74 @@ def download_excel(request, branch, semester):
         subject__subject_name=subject_name
     ).select_related("student", "subject")
 
-    # 🔷 FETCH CO DETAILS
     co_details = COConfiguration.objects.filter(
         subject__subject_name=subject_name,
         subject__branch__iexact=branch,
         subject__semester=semester
     ).order_by("co_number")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    bold_font = Font(bold=True)
-    center_align = Alignment(horizontal="center", vertical="center")
+    # -----------------------------
+    # PDF SETUP
+    # -----------------------------
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f"attachment; filename={subject_name}_{branch}_Sem{semester}.pdf"
 
-    thin_border = Border(
-      left=Side(style="thin"),
-      right=Side(style="thin"),
-      top=Side(style="thin"),
-      bottom=Side(style="thin")
-)
-    # =========================
-    # ADD HEADER SECTION
-    # =========================
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
 
-    ws.append(["Subject", subject_name])
-    ws.append(["Branch", branch])
-    ws.append(["Semester", semester])
+    doc = SimpleDocTemplate(
+        response,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=20
+    )
 
-    for row in ws.iter_rows(min_row=1, max_row=3, min_col=1, max_col=2):
-      for cell in row:
-        cell.font = bold_font
+    elements = []
+    styles = getSampleStyleSheet()
 
-    ws.append([])
+    # -----------------------------
+    # HEADER
+    # -----------------------------
+    styles["Title"].alignment = TA_CENTER
 
-    ws.append(["Course Outcomes"])
-    ws["A5"].font = Font(bold=True, size=14)
+    elements.append(Paragraph("CO Attainment Report", styles["Title"]))
+    elements.append(Spacer(1, 20))
 
-    # 
-    #  Write CO rows
-    start_row = 6
+    elements.append(Paragraph(f"<b>Subject:</b> {subject_name}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Branch:</b> {branch}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Semester:</b> {semester}", styles["Normal"]))
+    elements.append(Spacer(1, 20))
 
+    # -----------------------------
+    # CO DETAILS
+    # -----------------------------
+    elements.append(Paragraph("Course Outcomes", styles["Heading2"]))
+    elements.append(Spacer(1, 10))
+
+    co_table = [["CO", "Description"]]
     for co in co_details:
-        ws.append([f"CO{co.co_number}", co.statement])
+        co_table.append([f"CO{co.co_number}", co.statement])
 
-    end_row = start_row + len(co_details) - 1
-    for row in ws.iter_rows(min_row=start_row, max_row=end_row, min_col=1, max_col=2):
-      for cell in row:
-         cell.border = thin_border
-         cell.alignment = Alignment(wrap_text=True)
+    table = Table(co_table)
+    table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4B6CB7")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0,0), (-1,0), 8),
+    ]))
 
-    ws.append([])
-    ws.append([])
+    elements.append(table)
+    elements.append(Spacer(1, 20))
 
-    # =========================
-    # EXISTING LOGIC (UNCHANGED)
-    # =========================
+    # -----------------------------
+    # LOGIC (UNCHANGED)
+    # -----------------------------
+    from collections import defaultdict
 
     students = defaultdict(dict)
     co_set = set()
@@ -720,14 +734,13 @@ def download_excel(request, branch, semester):
 
     co_list = sorted(co_set)
 
-    headers = ["Student Name", "Registration Number", "Subject"] + co_list + ["Total"]
-    ws.append(headers)
+    headers = ["Student Name", "Reg No", "Subject"] + co_list + ["Total"]
+    table_data = [headers]
 
     co_totals = {co: 0 for co in co_list}
     student_count = 0
 
     for student in students.values():
-
         row = [
             student.get("name"),
             student.get("registration_number"),
@@ -739,68 +752,81 @@ def download_excel(request, branch, semester):
         for co in co_list:
             mark = student.get(co, 0)
             row.append(mark)
-
             total += mark
             co_totals[co] += mark
 
         row.append(total)
-        ws.append(row)
-
+        table_data.append(row)
         student_count += 1
-        
 
-    # =========================
+    # -----------------------------
+    # STUDENT TABLE
+    # -----------------------------
+    table = Table(
+    table_data,
+    repeatRows=1
+)
+
+    table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4B6CB7")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("BOTTOMPADDING", (0,0), (-1,0), 8),
+    ]))
+
+    elements.append(table)
+    elements.append(Spacer(1, 20))
+
+    # -----------------------------
     # ANALYTICS (UNCHANGED)
-    # =========================
-
+    # -----------------------------
     co_avg = {}
     co_has_data = {}
+
     for co in co_list:
-        #check if any non-zero marks exist
         has_real_data = any(student.get(co, 0) > 0 for student in students.values())
-
         co_has_data[co] = has_real_data
-        if student_count > 0 and has_real_data:
 
+        if student_count > 0 and has_real_data:
             co_avg[co] = round(co_totals[co] / student_count, 2)
         else:
             co_avg[co] = 0
 
     above_avg = {co: 0 for co in co_list}
 
-    
     for student in students.values():
         for co in co_list:
-             # skip fake CO (all zero case)
             if not co_has_data[co]:
                 continue
             if student.get(co, 0) >= co_avg[co]:
                 above_avg[co] += 1
 
-    # 🔥 GET SUBJECT SESSION
-    subject_obj = Subject.objects.filter(subject_name=subject_name,branch__iexact=branch,
-    semester=semester).first()
+    subject_obj = Subject.objects.filter(
+        subject_name=subject_name,
+        branch__iexact=branch,
+        semester=semester
+    ).first()
+
     session = subject_obj.session if subject_obj else None
     levels = AttainmentLevel.objects.filter(session=session).order_by('-id').first()
 
-    # 🔥 FETCH LEVELS ONCE
-
     if levels:
-        level1 = levels.level1
-        level2 = levels.level2
-        level3 = levels.level3
+        level1, level2, level3 = levels.level1, levels.level2, levels.level3
     else:
         level1, level2, level3 = 50, 60, 70
 
     co_attainment = {}
 
-    
     for co in co_list:
-         #  handle no real data
         if not co_has_data[co]:
             co_attainment[co] = 0
             continue
+
         percentage = (above_avg[co] / student_count) * 100 if student_count else 0
+
         if percentage >= level3:
             level = 3
         elif percentage >= level2:
@@ -810,59 +836,41 @@ def download_excel(request, branch, semester):
         else:
             level = 0
 
-        final_attainment = round(0.9 * level, 2)
+        co_attainment[co] = round(0.9 * level, 2)
 
-        co_attainment[co] = final_attainment
+    # -----------------------------
+    # ANALYTICS TABLE
+    # -----------------------------
+    analytics_data = [["Metric"] + co_list]
 
-    ws.append([])
+    analytics_data.append(["Average"] + [co_avg[c] for c in co_list])
+    analytics_data.append(["Students ≥ Avg"] + [above_avg[c] for c in co_list])
+    analytics_data.append(["Attainment"] + [co_attainment[c] for c in co_list])
 
-    avg_row = ["", "", "Average Marks"]
-    for co in co_list:
-        avg_row.append(co_avg[co])
-    avg_row.append("")
-    ws.append(avg_row)
+    table = Table(analytics_data)
 
-    count_row = ["", "", "Students ≥ Avg"]
-    for co in co_list:
-        count_row.append(above_avg[co])
-    count_row.append("")
-    ws.append(count_row)
+    table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#6C757D")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+    ]))
 
-    attain_row = ["", "", "CO Attainment"]
-    for co in co_list:
-        attain_row.append(co_attainment[co])
-    attain_row.append("")
-    ws.append(attain_row)
+    elements.append(table)
 
     avg_attainment = round(sum(co_attainment.values()) / len(co_attainment), 2) if co_attainment else 0
 
-    ws.append([])
-    ws.append(["", "", "Average CO Attainment", avg_attainment])
-    for row in ws.iter_rows(min_row=ws.max_row-3, max_row=ws.max_row, min_col=1, max_col=len(headers)):
-      for cell in row:
-          cell.font = bold_font
-          cell.alignment = center_align
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph(
+        f"<b>Average CO Attainment: {avg_attainment}</b>",
+        styles["Heading2"]
+    ))
 
-    # =========================
-    # RESPONSE
-    # =========================
-
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f"attachment; filename={subject_name}_{branch}_Sem{semester}.xlsx"
-
-    wb.save(response)
-    for col in ws.columns:
-      max_length = 0
-      col_letter = col[0].column_letter
-
-    for cell in col:
-        try:
-            if cell.value:
-                max_length = max(max_length, len(str(cell.value)))
-        except:
-            pass
-
-    ws.column_dimensions[col_letter].width = max_length + 2
+    # -----------------------------
+    # BUILD PDF
+    # -----------------------------
+    doc.build(elements)
 
     return response
 @csrf_exempt
@@ -964,76 +972,252 @@ def principal_co(request):
             })
 
     return JsonResponse(data, safe=False)
+@csrf_exempt
 def export_students_excel(request):
-    import openpyxl
-    from django.http import HttpResponse
     from .models import Student
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Students"
+    try:
+        branch = request.GET.get("branch")
+        semester = request.GET.get("semester")
 
-    ws.append(["Name", "Registration No", "Branch", "Semester"])
+        students = Student.objects.all()
 
-    branch = request.GET.get("branch")
-    semester = request.GET.get("semester")
+        if branch:
+            students = students.filter(branch__iexact=branch)
 
-    students = Student.objects.all()
+        if semester:
+            students = students.filter(semester=semester)
 
-    if branch:
-        students = students.filter(branch__iexact=branch)
+        # -----------------------------
+        # PDF RESPONSE
+        # -----------------------------
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=students.pdf"
 
-    if semester:
-        students = students.filter(semester=semester)
+        doc = SimpleDocTemplate(response)
+        elements = []
+        styles = getSampleStyleSheet()
 
-    for s in students:
-        ws.append([
-            s.full_name,
-            s.registration_number,
-            s.branch,
-            s.semester
-        ])
+        # -----------------------------
+        # CUSTOM STYLES
+        # -----------------------------
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            parent=styles["Title"],
+            fontSize=18,
+            spaceAfter=10
+        )
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=students.xlsx"
+        info_style = ParagraphStyle(
+            name="InfoStyle",
+            parent=styles["Normal"],
+            fontSize=10,
+            textColor=colors.grey
+        )
 
-    wb.save(response)
-    return response
+        # -----------------------------
+        # HEADER
+        # -----------------------------
+        elements.append(Paragraph("Students Report", title_style))
+        elements.append(Paragraph(f"Branch: {branch or 'All'}", info_style))
+        elements.append(Paragraph(f"Semester: {semester or 'All'}", info_style))
+        elements.append(Spacer(1, 15))
 
+        # -----------------------------
+        # TABLE DATA
+        # -----------------------------
+        table_data = [["Name", "Registration No", "Branch", "Semester"]]
+
+        for s in students:
+            table_data.append([
+                str(s.full_name or ""),
+                str(s.registration_number or ""),
+                str(s.branch or ""),
+                str(s.semester or "")
+            ])
+
+        # -----------------------------
+        # HANDLE EMPTY DATA
+        # -----------------------------
+        if len(table_data) == 1:
+            elements.append(Paragraph("No students found", styles["Normal"]))
+            doc.build(elements)
+            return response
+
+        # -----------------------------
+        # TABLE DESIGN
+        # -----------------------------
+        table = Table(table_data, repeatRows=1)
+
+        table_style = [
+            # Header styling
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E3B55")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+
+            # Body styling
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+
+            # Padding
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+
+            # Grid
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]
+
+        # Zebra rows (alternating colors)
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(
+                    ("BACKGROUND", (0, i), (-1, i), colors.whitesmoke)
+                )
+
+        table.setStyle(TableStyle(table_style))
+
+        elements.append(table)
+
+        # -----------------------------
+        # FOOTER
+        # -----------------------------
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"Total Students: {len(table_data) - 1}",
+            styles["Normal"]
+        ))
+
+        # -----------------------------
+        # BUILD PDF
+        # -----------------------------
+        doc.build(elements)
+
+        return response
+
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)
+
+@csrf_exempt
 def export_faculty_excel(request):
-    import openpyxl
-    from django.http import HttpResponse
+    from .models import Faculty
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Faculty"
+    try:
+        branch = request.GET.get("branch")
 
-    ws.append(["Name", "Email", "Designation", "Branch"])
+        faculty = Faculty.objects.all()
 
-    branch = request.GET.get("branch")
+        if branch:
+            faculty = faculty.filter(branch__iexact=branch)
 
-    faculty = Faculty.objects.all()
+        # -----------------------------
+        # PDF RESPONSE
+        # -----------------------------
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=faculty.pdf"
 
-    if branch:
-        faculty = faculty.filter(branch__iexact=branch)
+        doc = SimpleDocTemplate(response)
+        elements = []
+        styles = getSampleStyleSheet()
 
-    for f in faculty:
-        ws.append([
-            f.full_name,
-            f.email,
-            f.designation,
-            f.branch
-        ])
+        # -----------------------------
+        # CUSTOM STYLES
+        # -----------------------------
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            parent=styles["Title"],
+            fontSize=18,
+            spaceAfter=10
+        )
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=faculty.xlsx"
+        info_style = ParagraphStyle(
+            name="InfoStyle",
+            parent=styles["Normal"],
+            fontSize=10,
+            textColor=colors.grey
+        )
 
-    wb.save(response)
-    return response
+        # -----------------------------
+        # HEADER
+        # -----------------------------
+        elements.append(Paragraph("Faculty Report", title_style))
+        elements.append(Paragraph(f"Branch: {branch or 'All'}", info_style))
+        elements.append(Spacer(1, 15))
+
+        # -----------------------------
+        # TABLE DATA
+        # -----------------------------
+        table_data = [["Name", "Email", "Designation", "Branch"]]
+
+        for f in faculty:
+            table_data.append([
+                str(f.full_name or ""),
+                str(f.email or ""),
+                str(f.designation or ""),
+                str(f.branch or "")
+            ])
+
+        # -----------------------------
+        # HANDLE EMPTY DATA
+        # -----------------------------
+        if len(table_data) == 1:
+            elements.append(Paragraph("No faculty found", styles["Normal"]))
+            doc.build(elements)
+            return response
+
+        # -----------------------------
+        # TABLE DESIGN
+        # -----------------------------
+        table = Table(table_data, repeatRows=1)
+
+        table_style = [
+            # Header
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E3B55")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+
+            # Body
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+
+            # Padding
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+
+            # Grid
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]
+
+        # Zebra rows
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(
+                    ("BACKGROUND", (0, i), (-1, i), colors.whitesmoke)
+                )
+
+        table.setStyle(TableStyle(table_style))
+
+        elements.append(table)
+
+        # -----------------------------
+        # FOOTER
+        # -----------------------------
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"Total Faculty: {len(table_data) - 1}",
+            styles["Normal"]
+        ))
+
+        # -----------------------------
+        # BUILD PDF
+        # -----------------------------
+        doc.build(elements)
+
+        return response
+
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)
 def download_co_pdf(request):
     branch = request.GET.get("branch")
     semester = request.GET.get("semester")
@@ -1085,87 +1269,258 @@ def download_co_pdf(request):
 
     doc.build(elements)
     return response
+@csrf_exempt
 def export_subjects_excel(request):
-    import openpyxl
-    from django.http import HttpResponse
+    from .models import Subject
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Subjects"
+    try:
+        branch = request.GET.get("branch")
+        semester = request.GET.get("semester")
 
-    ws.append(["Subject Code", "Subject Name", "Branch", "Semester", "Session", "Batch"])
+        # ✅ FIXED: use created_by instead of faculty
+        subjects = Subject.objects.select_related("created_by").all()
 
-    branch = request.GET.get("branch")
-    semester = request.GET.get("semester")
+        if branch:
+            subjects = subjects.filter(branch__iexact=branch)
 
-    subjects = Subject.objects.all()
+        if semester:
+            subjects = subjects.filter(semester=semester)
 
-    if branch:
-        subjects = subjects.filter(branch__iexact=branch)
+        # -----------------------------
+        # PDF RESPONSE
+        # -----------------------------
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=subjects.pdf"
 
-    if semester:
-        subjects = subjects.filter(semester=semester)
+        doc = SimpleDocTemplate(response)
+        elements = []
+        styles = getSampleStyleSheet()
 
-    for s in subjects:
-        ws.append([
-            s.subject_code,
-            s.subject_name,
-            s.branch,
-            s.semester,
-            s.session,
-            s.batch
-        ])
+        # -----------------------------
+        # CUSTOM STYLES
+        # -----------------------------
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            parent=styles["Title"],
+            fontSize=18,
+            spaceAfter=10
+        )
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=subjects.xlsx"
+        info_style = ParagraphStyle(
+            name="InfoStyle",
+            parent=styles["Normal"],
+            fontSize=10,
+            textColor=colors.grey
+        )
 
-    wb.save(response)
-    return response
+        # -----------------------------
+        # HEADER
+        # -----------------------------
+        elements.append(Paragraph("Subjects Report", title_style))
+        elements.append(Paragraph(f"Branch: {branch or 'All'}", info_style))
+        elements.append(Paragraph(f"Semester: {semester or 'All'}", info_style))
+        elements.append(Spacer(1, 15))
+
+        # -----------------------------
+        # TABLE DATA (WITH FACULTY)
+        # -----------------------------
+        table_data = [["Code", "Name", "Faculty", "Branch", "Sem", "Session", "Batch"]]
+
+        for s in subjects:
+            table_data.append([
+                str(s.subject_code or ""),
+                str(s.subject_name or ""),
+                str(s.created_by.full_name if s.created_by else "N/A"),  # ✅ FIXED
+                str(s.branch or ""),
+                str(s.semester or ""),
+                str(s.session or ""),
+                str(s.batch or "")
+            ])
+
+        # -----------------------------
+        # EMPTY DATA
+        # -----------------------------
+        if len(table_data) == 1:
+            elements.append(Paragraph("No subjects found", styles["Normal"]))
+            doc.build(elements)
+            return response
+
+        # -----------------------------
+        # TABLE DESIGN
+        # -----------------------------
+        table = Table(table_data, repeatRows=1)
+
+        table_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E3B55")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]
+
+        # Zebra rows
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(
+                    ("BACKGROUND", (0, i), (-1, i), colors.whitesmoke)
+                )
+
+        table.setStyle(TableStyle(table_style))
+
+        elements.append(table)
+
+        # -----------------------------
+        # FOOTER
+        # -----------------------------
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"Total Subjects: {len(table_data) - 1}",
+            styles["Normal"]
+        ))
+
+        # -----------------------------
+        # BUILD PDF
+        # -----------------------------
+        doc.build(elements)
+
+        return response
+
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)
+@csrf_exempt
 def export_co_marks_excel(request):
-    import openpyxl
-    from django.http import HttpResponse
+    from .models import COMark
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "CO Analytics"
+    try:
+        branch = request.GET.get("branch")
+        subject_id = request.GET.get("subject_id")
 
-    ws.append([
-        "Student Name",
-        "Reg No",
-        "Subject Code",
-        "CO Number",
-        "Marks"
-    ])
+        co_marks = COMark.objects.select_related("student", "subject")
 
-    branch = request.GET.get("branch")
-    subject_id = request.GET.get("subject_id")
+        if branch:
+            co_marks = co_marks.filter(branch__iexact=branch)
 
-    co_marks = COMark.objects.select_related("student", "subject")
+        if subject_id:
+            co_marks = co_marks.filter(subject_id=subject_id)
 
-    if branch:
-        co_marks = co_marks.filter(branch__iexact=branch)
+        # -----------------------------
+        # PDF RESPONSE
+        # -----------------------------
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=co_analytics.pdf"
 
-    if subject_id:
-        co_marks = co_marks.filter(subject_id=subject_id)
+        doc = SimpleDocTemplate(response)
+        elements = []
+        styles = getSampleStyleSheet()
 
-    for m in co_marks:
-        ws.append([
-            m.student.full_name,
-            m.student.registration_number,
-            m.subject.subject_code,
-            m.co_number,
-            m.marks
-        ])
+        # -----------------------------
+        # CUSTOM STYLES
+        # -----------------------------
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            parent=styles["Title"],
+            fontSize=18,
+            spaceAfter=10
+        )
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=co_analytics.xlsx"
+        info_style = ParagraphStyle(
+            name="InfoStyle",
+            parent=styles["Normal"],
+            fontSize=10,
+            textColor=colors.grey
+        )
 
-    wb.save(response)
-    return response
+        # -----------------------------
+        # HEADER
+        # -----------------------------
+        elements.append(Paragraph("CO Marks Report", title_style))
+        elements.append(Paragraph(f"Branch: {branch or 'All'}", info_style))
+        elements.append(Spacer(1, 15))
+
+        # -----------------------------
+        # TABLE DATA
+        # -----------------------------
+        table_data = [[
+            "Student Name",
+            "Reg No",
+            "Subject Code",
+            "CO",
+            "Marks"
+        ]]
+
+        for m in co_marks:
+            table_data.append([
+                str(m.student.full_name or ""),
+                str(m.student.registration_number or ""),
+                str(m.subject.subject_code or ""),
+                f"CO{m.co_number}",
+                str(m.marks or "")
+            ])
+
+        # -----------------------------
+        # EMPTY DATA
+        # -----------------------------
+        if len(table_data) == 1:
+            elements.append(Paragraph("No data found", styles["Normal"]))
+            doc.build(elements)
+            return response
+
+        # -----------------------------
+        # TABLE DESIGN
+        # -----------------------------
+        table = Table(table_data, repeatRows=1)
+
+        table_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E3B55")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]
+
+        # Zebra rows
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(
+                    ("BACKGROUND", (0, i), (-1, i), colors.whitesmoke)
+                )
+
+        table.setStyle(TableStyle(table_style))
+
+        elements.append(table)
+
+        # -----------------------------
+        # FOOTER
+        # -----------------------------
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"Total Records: {len(table_data) - 1}",
+            styles["Normal"]
+        ))
+
+        # -----------------------------
+        # BUILD PDF
+        # -----------------------------
+        doc.build(elements)
+
+        return response
+
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)
 @csrf_exempt
 def get_co_analytics(request):
     if request.method == "POST":
@@ -1368,19 +1723,92 @@ def export_coa(request):
         body = json.loads(request.body)
         data = body.get("data", [])
 
-        df = pd.DataFrame(data)
+        # -----------------------------
+        # PDF RESPONSE
+        # -----------------------------
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=COA_Report.pdf"
 
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name="COA")
+        doc = SimpleDocTemplate(response)
+        elements = []
+        styles = getSampleStyleSheet()
 
-        output.seek(0)
-
-        response = HttpResponse(
-            output,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        # -----------------------------
+        # HEADER
+        # -----------------------------
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            parent=styles["Title"],
+            fontSize=18,
+            spaceAfter=10
         )
-        response['Content-Disposition'] = 'attachment; filename=COA_Report.xlsx'
+
+        elements.append(Paragraph("CO Attainment Report", title_style))
+        elements.append(Spacer(1, 15))
+
+        # -----------------------------
+        # HANDLE EMPTY DATA
+        # -----------------------------
+        if not data:
+            elements.append(Paragraph("No data available", styles["Normal"]))
+            doc.build(elements)
+            return response
+
+        # -----------------------------
+        # TABLE DATA (DYNAMIC)
+        # -----------------------------
+        headers = list(data[0].keys())
+        table_data = [headers]
+
+        for row in data:
+            table_data.append([
+                str(row.get(col, "")) for col in headers
+            ])
+
+        # -----------------------------
+        # TABLE DESIGN
+        # -----------------------------
+        table = Table(table_data, repeatRows=1)
+
+        table_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E3B55")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ]
+
+        # Zebra rows
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(
+                    ("BACKGROUND", (0, i), (-1, i), colors.whitesmoke)
+                )
+
+        table.setStyle(TableStyle(table_style))
+
+        elements.append(table)
+
+        # -----------------------------
+        # FOOTER
+        # -----------------------------
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph(
+            f"Total Records: {len(data)}",
+            styles["Normal"]
+        ))
+
+        # -----------------------------
+        # BUILD PDF
+        # -----------------------------
+        doc.build(elements)
 
         return response
 
@@ -1399,21 +1827,28 @@ def save_co_details(request):
             subject = Subject.objects.get(id=subject_id)
             faculty = Faculty.objects.get(id=faculty_id)
 
-            # ✅ Prevent duplicate per faculty
+            # ✅ NEW CHECK → block if ANY CO exists for subject
+            if COConfiguration.objects.filter(subject=subject).exists():
+                return JsonResponse({
+                    "success": False,
+                    "message": "CO details already exist for this subject and semester"
+                }, status=400)
+
+            # ✅ KEEP EXISTING CHECK
             if COConfiguration.objects.filter(
                 subject=subject,
                 faculty=faculty
             ).exists():
                 return JsonResponse({
                     "success": False,
-                    "message": "CO details already added"
+                    "message": "You have already added CO details for this subject"
                 }, status=400)
 
             # ✅ Save with faculty
             for i, statement in enumerate(co_statements, start=1):
                 COConfiguration.objects.create(
                     subject=subject,
-                    faculty=faculty,   # 🔥 IMPORTANT
+                    faculty=faculty,
                     co_number=i,
                     statement=statement
                 )
@@ -1692,39 +2127,6 @@ def delete_co(request):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
 
-def download_co_details(request):
-    subject_code = request.GET.get("subject_code")
-    faculty_id = request.GET.get("faculty_id")
-
-    if not subject_code or not faculty_id:
-        return HttpResponse("Missing subject_code or faculty_id", status=400)
-
-    cos = COConfiguration.objects.filter(
-        subject__subject_code=subject_code,
-        faculty_id=faculty_id
-    )
-
-    if not cos.exists():
-        return HttpResponse("No data found", status=404)
-
-    subject = cos.first().subject
-
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="{subject.subject_name}_{subject.branch}_Sem{subject.semester}_CO_Details.csv"'
-
-    writer = csv.writer(response)
-
-    writer.writerow(["Subject:", subject.subject_name])
-    writer.writerow(["Branch:", subject.branch])
-    writer.writerow(["Semester:", subject.semester])
-    writer.writerow([])
-
-    writer.writerow(["CO Number", "Statement"])
-
-    for co in cos:
-        writer.writerow([co.co_number, co.statement])
-
-    return response
 def get_sessions(request):
     try:
         from .models import Subject, AttainmentLevel
@@ -2062,52 +2464,84 @@ def download_po_pso_pdf(request):
 
     return response
 
+@csrf_exempt
 def download_mapping_excel(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")
     subject_id = request.GET.get("subject_id")
     subject_name = request.GET.get("subject")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "CO-PO-PSO Mapping"
+    # -----------------------------
+    # PDF RESPONSE
+    # -----------------------------
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = "attachment; filename=co_po_pso_mapping.pdf"
 
-    ws.append(["Branch", branch])
-    ws.append(["Session", session])
-    ws.append(["Subject", subject_name])
-    ws.append([])
+    doc = SimpleDocTemplate(response)
+    elements = []
+    styles = getSampleStyleSheet()
 
+    # -----------------------------
+    # HEADER
+    # -----------------------------
+    elements.append(Paragraph("CO-PO-PSO Mapping Report", styles["Title"]))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(f"Branch: {branch}", styles["Normal"]))
+    elements.append(Paragraph(f"Session: {session}", styles["Normal"]))
+    elements.append(Paragraph(f"Subject: {subject_name}", styles["Normal"]))
+    elements.append(Spacer(1, 10))
+
+    # -----------------------------
+    # FETCH DATA (UNCHANGED LOGIC)
+    # -----------------------------
     po_list = list(POPSO.objects.filter(branch=branch, session=session, type="PO"))
     pso_list = list(POPSO.objects.filter(branch=branch, session=session, type="PSO"))
 
     mappings = COPSOMap.objects.filter(subject_id=subject_id)
 
-    # Header
+    # -----------------------------
+    # TABLE DATA
+    # -----------------------------
     header = ["CO"] + [po.code for po in po_list] + [pso.code for pso in pso_list]
-    ws.append(header)
+    table_data = [header]
 
-    # Rows
     for m in mappings:
         row = []
 
-        row.append(f"CO{m.co.co_number}")# or m.co.co_number
+        row.append(f"CO{m.co.co_number}")
 
         for po in po_list:
             value = m.po_mapping.get(po.code, "-")
             row.append(value)
 
         for pso in pso_list:
-          value = m.pso_mapping.get(pso.code, "-")
-          row.append(value)
+            value = m.pso_mapping.get(pso.code, "-")
+            row.append(value)
 
-        ws.append(row)
+        table_data.append(row)
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=co_po_pso_mapping.xlsx"
+    # -----------------------------
+    # TABLE DESIGN
+    # -----------------------------
+    table = Table(table_data, repeatRows=1)
 
-    wb.save(response)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ]))
+
+    elements.append(table)
+
+    # -----------------------------
+    # BUILD PDF
+    # -----------------------------
+    doc.build(elements)
+
     return response
 def get_mapping_principal(request):
     session = request.GET.get("session")
@@ -2161,18 +2595,31 @@ def get_mapping_principal(request):
         })
 
     return JsonResponse(result, safe=False)
+@csrf_exempt
 def download_mapping_excel_principal(request):
     branch = request.GET.get("branch")
     session = request.GET.get("session")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "CO-PO-PSO Mapping"
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = "attachment; filename=principal_mapping.pdf"
 
-    ws.append(["Branch", branch])
-    ws.append(["Session", session])
-    ws.append([])
+    doc = SimpleDocTemplate(response)
+    elements = []
+    styles = getSampleStyleSheet()
 
+    # -----------------------------
+    # HEADER
+    # -----------------------------
+    elements.append(Paragraph("CO-PO-PSO Mapping Report", styles["Title"]))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(f"Branch: {branch}", styles["Normal"]))
+    elements.append(Paragraph(f"Session: {session}", styles["Normal"]))
+    elements.append(Spacer(1, 10))
+
+    # -----------------------------
+    # FETCH DATA (UNCHANGED LOGIC)
+    # -----------------------------
     po_list = list(POPSO.objects.filter(branch=branch, session=session, type="PO"))
     pso_list = list(POPSO.objects.filter(branch=branch, session=session, type="PSO"))
 
@@ -2187,12 +2634,16 @@ def download_mapping_excel_principal(request):
     for m in mappings:
         subject_group[m.subject.subject_name].append(m)
 
+    # -----------------------------
+    # BUILD PDF CONTENT
+    # -----------------------------
     for subject_name, maps in subject_group.items():
-        ws.append([])
-        ws.append(["Subject", subject_name])
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph(f"Subject: {subject_name}", styles["Heading2"]))
+        elements.append(Spacer(1, 5))
 
         header = ["CO"] + [po.code for po in po_list] + [pso.code for pso in pso_list]
-        ws.append(header)
+        table_data = [header]
 
         for m in maps:
             row = [f"CO{m.co.co_number}"]
@@ -2203,12 +2654,24 @@ def download_mapping_excel_principal(request):
             for pso in pso_list:
                 row.append(m.pso_mapping.get(pso.code, "-"))
 
-            ws.append(row)
+            table_data.append(row)
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=principal_mapping.xlsx"
+        table = Table(table_data, repeatRows=1)
 
-    wb.save(response)
+        table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+
+        elements.append(table)
+
+    # -----------------------------
+    # BUILD PDF
+    # -----------------------------
+    doc.build(elements)
+
     return response

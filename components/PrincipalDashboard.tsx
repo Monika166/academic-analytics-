@@ -721,41 +721,28 @@ const PrincipalDashboard: React.FC = () => {
                 {/* IMPORT BUTTON */}
                 <div className="flex justify-end mt-4">
                   <button
-                    onClick={() => {
-                      if (filteredStudents.length === 0) {
-                        alert("No students to export");
-                        return;
+                    onClick={async () => {
+                      try {
+                        const url = `http://127.0.0.1:8000/api/export-students/?branch=${selectedBranch}&semester=${selectedSemester}`;
+
+                        const res = await fetch(url);
+                        const blob = await res.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+
+                        const a = document.createElement("a");
+                        a.href = downloadUrl;
+                        a.download = "students.pdf";
+                        a.click();
+
+                        window.URL.revokeObjectURL(downloadUrl);
+                      } catch (err) {
+                        console.error(err);
+                        alert("Download failed");
                       }
-
-                      const headers = [
-                        "Name",
-                        "Registration No",
-                        "Branch",
-                        "Semester",
-                      ];
-
-                      const rows = filteredStudents.map((s) => [
-                        s.full_name,
-                        s.registration_number,
-                        s.branch,
-                        s.semester,
-                      ]);
-
-                      const csvContent = [headers, ...rows]
-                        .map((row) => row.join(","))
-                        .join("\n");
-
-                      const blob = new Blob([csvContent], { type: "text/csv" });
-                      const url = window.URL.createObjectURL(blob);
-
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = "Students_List.csv";
-                      a.click();
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
-                    Export Excel
+                    DOwnload PDf
                   </button>
                 </div>
               </div>
@@ -867,7 +854,7 @@ const PrincipalDashboard: React.FC = () => {
                     }}
                     className="bg-blue-700 text-white px-4 py-2 rounded shadow"
                   >
-                    Export Excel
+                    Export PDF
                   </button>
                 </div>
               </div>
@@ -1043,7 +1030,7 @@ const PrincipalDashboard: React.FC = () => {
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >
-                Export Excel
+                Export PDF
               </button>
             </div>
           </div>
@@ -1344,7 +1331,7 @@ const PrincipalDashboard: React.FC = () => {
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >
-                Download Excel
+                Download PDF
               </button>
             </div>
           </div>
@@ -1444,43 +1431,41 @@ const PrincipalDashboard: React.FC = () => {
             {/* EXPORT */}
             <div className="flex justify-end mt-4">
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (filteredData.length === 0) {
                     alert("No data to export");
                     return;
                   }
 
-                  // Create CSV content
-                  const headers = [
-                    "Branch",
-                    "Subject",
-                    "Semester",
-                    "Attainment",
-                  ];
+                  try {
+                    const res = await fetch(
+                      "http://127.0.0.1:8000/api/export-coa/",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ data: filteredData }),
+                      },
+                    );
 
-                  const rows = filteredData.map((item) => [
-                    item.branch,
-                    item.subject,
-                    item.semester,
-                    item.attainment,
-                  ]);
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
 
-                  const csvContent = [headers, ...rows]
-                    .map((row) => row.join(","))
-                    .join("\n");
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "COA_Report.pdf"; // ✅ PDF now
+                    a.click();
 
-                  // Create file and download
-                  const blob = new Blob([csvContent], { type: "text/csv" });
-                  const url = window.URL.createObjectURL(blob);
-
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "COA_Report.csv";
-                  a.click();
+                    window.URL.revokeObjectURL(url);
+                  } catch (err) {
+                    console.error(err);
+                    alert("Download failed");
+                  }
                 }}
                 className="bg-blue-700 text-white px-4 py-2 rounded shadow"
               >
-                Export Excel
+                Export PDF
               </button>
             </div>
           </div>
@@ -1761,13 +1746,6 @@ const PrincipalDashboard: React.FC = () => {
               >
                 Download PDF
               </button>
-
-              <button
-                onClick={() => setShowPOPSOModal(false)}
-                className="border px-4 py-2 rounded"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
@@ -1927,16 +1905,10 @@ const PrincipalDashboard: React.FC = () => {
                 }}
                 className="bg-green-600 text-white px-4 py-2 rounded"
               >
-                Download Excel
+                Download
               </button>
 
               {/* CLOSE */}
-              <button
-                onClick={() => setShowMappingModal(false)}
-                className="border px-4 py-2 rounded"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
